@@ -21,6 +21,17 @@ jobs:
       - name: Install functions dependencies
         run: npm install --prefix functions
 
+      - name: Write functions/.env (IP 해시용 SALT, 선택)
+        env:
+          SALT: ${{ secrets.IDENTIFY_SALT }}
+        run: |
+          if [ -n "$SALT" ]; then
+            echo "IDENTIFY_SALT=$SALT" > functions/.env
+            echo "IDENTIFY_SALT 시크릿으로 functions/.env 생성 완료"
+          else
+            echo "IDENTIFY_SALT 시크릿이 없어 기본 SALT로 배포합니다. (repo Settings → Secrets → Actions에 추가 권장)"
+          fi
+
       - name: Write service account
         env:
           SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

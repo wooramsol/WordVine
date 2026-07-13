@@ -3,3 +3,4 @@ data.json
 .vercel/
 .DS_Store
 public/firebase-config.js
+functions/.env

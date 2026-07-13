@@ -10,10 +10,11 @@
 const functions = require('firebase-functions');
 const crypto = require('crypto');
 
-// 운영 배포 전에 반드시 별도 값으로 설정 권장:
-//   firebase functions:config:set identify.salt="충분히 긴 랜덤 문자열" --project <프로젝트ID>
-// 설정하지 않으면 아래 기본값을 쓰는데, 기본값은 소스에 공개되어 있어 안전하지 않다.
-const SALT = (functions.config().identify && functions.config().identify.salt) || 'nakmal-baduk-default-salt-change-me';
+// firebase functions:config:set 은 2025년 말부로 셧다운된 구식 API라 여기선 쓰지 않는다.
+// 대신 functions/.env (배포 시 함께 업로드됨)의 IDENTIFY_SALT 환경변수를 사용.
+// .env가 없으면(로컬 테스트, 시크릿 미설정 등) 아래 기본값으로 폴백 — 운영에서는
+// 반드시 별도 값을 functions/.env에 IDENTIFY_SALT=... 형태로 설정할 것.
+const SALT = process.env.IDENTIFY_SALT || 'nakmal-baduk-default-salt-change-me';
 
 function clientIp(req) {
   const fwd = req.headers['x-forwarded-for'];

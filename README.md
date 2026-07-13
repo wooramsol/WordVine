@@ -29,9 +29,12 @@
    - Name: `FIREBASE_SERVICE_ACCOUNT`
    - Value: Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → 새 비공개 키(JSON) 내용
 4. (권장) IP 해시용 SALT 별도 설정 — 기본값은 소스에 공개돼 있어 안전하지 않음
-   ```bash
-   firebase functions:config:set identify.salt="충분히 긴 랜덤 문자열" --project wordvine-6846a
-   ```
+   GitHub 레포 **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `IDENTIFY_SALT`
+   - Value: 충분히 긴 랜덤 문자열 (예: `openssl rand -hex 32` 로 생성)
+
+   배포 워크플로가 이 시크릿으로 `functions/.env`를 자동 생성한다.
+   (`firebase functions:config:set`은 2025년 말 셧다운된 구식 API라 쓰지 않음)
 
 배포 시 `scripts/gen-firebase-config.js`가 웹앱 등록과 `public/firebase-config.js` 생성을 자동 처리한다.
 
