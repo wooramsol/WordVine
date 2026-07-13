@@ -228,24 +228,27 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
     return { err: '기존 단어와 최소 한 글자는 이어져야 합니다.' };
   }
 
+  // 접두/접미를 "전부 쓰거나 아예 안 쓰거나"만 시도하면, 예를 들어 기존 3글자 단어
+  // "길동무"에 이어 "선"을 쳤을 때 "길동무선"(접두 3글자 전부)과 "선"(0글자)만 검사하고,
+  // 그 사이의 "무선"(접두 1글자만)은 절대 못 찾음. 그래서 접두 0~전체, 접미 0~전체 길이를
+  // 전부 조합해서 시도하고, 그중 가장 긴(더 완전한) 조합부터 사전에 있는지 확인함.
   const combos = [];
-  const push = (uP, uS) => {
-    const len = (uP ? prefix.length : 0) + typed.length + (uS ? suffix.length : 0);
-    if (!combos.some(c => c.uP === uP && c.uS === uS)) combos.push({ uP, uS, len });
-  };
-  push(prefix.length > 0, suffix.length > 0);
-  push(prefix.length > 0, false);
-  push(false, suffix.length > 0);
-  push(false, false);
+  for (let pLen = prefix.length; pLen >= 0; pLen--) {
+    for (let sLen = suffix.length; sLen >= 0; sLen--) {
+      combos.push({ pLen, sLen, len: pLen + typed.length + sLen });
+    }
+  }
   combos.sort((a, b) => b.len - a.len);
 
   const fails = [];
-  for (const { uP, uS } of combos) {
+  for (const { pLen, sLen } of combos) {
     let gridTyped = '', conflict = null;
     for (let i = 0; i < typed.length; i++) {
       const ex = tCells[i];
       if (ex) {
-        const dueumOk = i === 0 && !uP && dueumVariants(ex.ch).includes(typed[i]);
+        // 두음법칙은 이 글자가 "완성 단어의 첫 글자"일 때만 적용 — 접두를 하나라도 쓰면
+        // 그 앞에 글자가 더 있으므로 여기는 단어 첫 글자가 아님
+        const dueumOk = i === 0 && pLen === 0 && dueumVariants(ex.ch).includes(typed[i]);
         if (ex.ch !== typed[i] && !dueumOk) {
           conflict = { kind: 'conflict', i, msg: `${i + 1}번째 칸의 기존 글자('${ex.ch}')와 다릅니다.` };
           break;
@@ -255,12 +258,14 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
     }
     if (conflict) { fails.push(conflict); continue; }
 
-    const word = (uP ? prefix : '') + gridTyped + (uS ? suffix : '');
+    const usedPrefix = pLen > 0 ? prefix.slice(prefix.length - pLen) : '';
+    const usedSuffix = sLen > 0 ? suffix.slice(0, sLen) : '';
+    const word = usedPrefix + gridTyped + usedSuffix;
     if (word.length < 2) { fails.push({ kind: 'short' }); continue; }
     if (word.length > 15) { fails.push({ kind: 'long', msg: '완성 단어가 15글자를 넘습니다.' }); continue; }
 
-    const startX = uP ? sx : x;
-    const startY = uP ? sy : y;
+    const startX = x - dx * pLen;
+    const startY = y - dy * pLen;
 
     if (!DICT) return { err: '사전을 아직 불러오는 중이에요…' };
     const firstExisting = !!getCell(startX, startY);
