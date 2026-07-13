@@ -95,7 +95,8 @@
   }
 
   @media (max-width: 640px) {
-    #toast { bottom: auto; top: 60px; }
+    /* 주소창/노치 등 모바일 상단 UI에 가려 잘리지 않도록 더 아래로, safe-area까지 고려 */
+    #toast { bottom: auto; top: calc(92px + env(safe-area-inset-top, 0px)); }
     #leaderboard { font-size: 11px; padding: 8px 10px; min-width: 120px; max-width: 160px; }
   }
 </style>
@@ -573,6 +574,16 @@ function fitBoard() {
 }
 
 // 선택 칸/미리보기 구간이 가시 영역 밖이면 가운데로 이동
+// 칸을 "새로 선택"할 때 항상 그 칸이 화면 정중앙에 오도록 카메라를 옮김. (ensureVisible()은
+// "이미 보이면 그대로 두고, 벗어날 때만" 옮기는 방식이라 모바일에서 키보드가 늦게 뜨면서
+// 뒤늦게 화면이 확 튀는 느낌을 줬음 — 선택하는 순간 바로/예측 가능하게 중앙 정렬해서 방지)
+function centerOnSel() {
+  if (!sel) return;
+  const vw = innerWidth, vh = visibleHeight();
+  camX = sel.x + 0.5 - vw / (2 * cellSize);
+  camY = sel.y + 0.5 - vh / (2 * cellSize);
+}
+
 function ensureVisible() {
   if (!sel) return;
   let minX = sel.x, maxX = sel.x, minY = sel.y, maxY = sel.y;
@@ -759,6 +770,9 @@ function openPopup(cx, cy, px, py) {
   sel = { x: cx, y: cy, dir };
   preview = null;
   wordInput.value = '';
+  // 카메라를 먼저 선택 칸 중심으로 옮긴 다음에 UI(입력창/배지) 위치를 잡아야
+  // 화면이 옮겨진 뒤에도 배지/입력창이 실제 칸 위치와 어긋나지 않음
+  centerOnSel();
   const capturedHere = cells.get(K(cx, cy))?.captured;
   setMsg(capturedHere ? '포획된 영역이라 사용할 수 없어요. 화살표로 다른 칸으로 이동해 보세요.' : '');
   submitEnabled = false;
@@ -766,7 +780,7 @@ function openPopup(cx, cy, px, py) {
   positionWordInput();
   positionSelUI();
   wordInput.focus();
-  ensureVisible();
+  draw();
   broadcastTyping();
 }
 function closePopup() {
@@ -799,7 +813,7 @@ function setMsg(text, ok) {
 }
 function updateModeBadge() {
   if (!sel) return;
-  const arrow = sel.dir === 'h' ? '가로 →' : '세로 ↓';
+  const arrow = sel.dir === 'h' ? '가로' : '세로';
   modeBadge.textContent = arrow;
 }
 
