@@ -51,4 +51,4 @@ jobs:
       - name: Deploy (hosting + database rules + functions)
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-        run: firebase deploy --only hosting,database,functions --project wordvine-6846a --non-interactive
+        run: firebase deploy --only hosting,database,functions --project wordvine-6846a --non-interactive --force
