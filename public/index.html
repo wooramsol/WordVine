@@ -626,19 +626,24 @@ function ensureVisible() {
 }
 
 if (window.visualViewport) {
+  let vvSettleTimer = null;
   visualViewport.addEventListener('resize', () => {
     // 모바일 키보드가 뜨고 닫힐 때 iOS 등 일부 브라우저는 window resize 이벤트를 안 쏴서
     // 캔버스가 다시 초기화(clear)되지 않고, 그 상태에서 줌/이동을 하면 화면에 이전 프레임의
     // 잔상이 남는 경우가 있음. visualViewport가 바뀔 때마다 캔버스를 완전히 리셋해서 방지.
     resize();
-    if (sel) {
-      // 칸을 선택한 "직후"(키보드가 뜨기 전, 화면이 아직 안 줄어든 상태)에 정중앙 계산을 해버려서,
-      // 키보드가 실제로 다 열리고 나면 세로 방향으로 위쪽에 치우쳐 보이던 문제를 여기서 다시 잡음.
-      // 키보드가 열리며 화면이 바뀔 때마다 새 높이 기준으로 다시 정중앙 계산.
-      centerOnSel();
-      ensureVisible();
-      positionSelUI();
-    }
+    // 키보드가 열리고 닫히는 애니메이션 도중에는 visualViewport.height/offsetTop이 여러 번
+    // 중간값으로 계속 바뀌며 resize 이벤트가 연달아 발생함. 그 중간값 그대로 중앙을 계산하면
+    // 매번 다른(잘못된) 위치로 잡혀서 "칸마다 세로 중앙이 다르게" 보이는 원인이 됨.
+    // 값이 더 이상 안 바뀌고 "안정된" 시점에 딱 한 번만 다시 중앙을 맞춘다.
+    clearTimeout(vvSettleTimer);
+    vvSettleTimer = setTimeout(() => {
+      if (sel) {
+        centerOnSel();
+        ensureVisible();
+        positionSelUI();
+      }
+    }, 150);
   });
 }
 
