@@ -2,25 +2,33 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WordVine — 무한 십자낱말</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WordVine — 낱말넝쿨</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
   body { background: #f5f1e8; }
-  #board { display: block; cursor: grab; }
+  #board { display: block; cursor: grab; touch-action: none; }
   #board.dragging { cursor: grabbing; }
 
-  #hud {
-    position: fixed; top: 12px; left: 12px; z-index: 10;
-    background: rgba(255,255,255,.92); border: 1px solid #d8d2c4;
-    border-radius: 10px; padding: 10px 14px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
-    font-size: 13px; color: #444; line-height: 1.6; max-width: 270px;
+  #brand {
+    position: fixed; top: 12px; left: 12px; z-index: 11;
+    background: rgba(255,255,255,.95); border: 1px solid #d8d2c4;
+    border-radius: 20px; padding: 8px 14px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    font-size: 15px; font-weight: 700; color: #1a1a1a; cursor: pointer;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   }
-  #hud b { color: #1a1a1a; font-size: 15px; }
+  #infoPanel {
+    position: fixed; top: 54px; left: 12px; z-index: 10;
+    background: rgba(255,255,255,.95); border: 1px solid #d8d2c4;
+    border-radius: 12px; padding: 12px 15px; box-shadow: 0 2px 10px rgba(0,0,0,.1);
+    font-size: 13px; color: #444; line-height: 1.7; max-width: 280px;
+  }
+  #infoPanel b { color: #1a1a1a; font-size: 15px; }
+  #infoPanel.hidden { display: none; }
   #stats { margin-top: 4px; color: #6b5e3f; }
   #status { position: fixed; top: 12px; right: 12px; z-index: 10; font-size: 12px;
-    padding: 5px 10px; border-radius: 20px; background: #e5e0d3; color: #777; }
+    padding: 6px 10px; border-radius: 20px; background: #e5e0d3; color: #777; }
   #status.on { background: #dcefdb; color: #2c6e2f; }
 
   #popup {
@@ -57,19 +65,33 @@
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
     background: rgba(40,40,40,.92); color: #fff; padding: 9px 18px;
     border-radius: 20px; font-size: 13px; z-index: 30; display: none;
+    max-width: 90vw; text-align: center;
+  }
+
+  /* 모바일: 팝업을 하단 시트로 */
+  @media (max-width: 640px) {
+    #popup.sheet {
+      left: 0 !important; right: 0; top: auto !important; bottom: 0;
+      width: 100%; border-radius: 16px 16px 0 0; border-bottom: none;
+      padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+      box-shadow: 0 -6px 24px rgba(0,0,0,.18);
+    }
+    #popup .dirs button { padding: 10px 0; font-size: 15px; }
+    #popup .actions button { padding: 12px 0; font-size: 15px; }
+    #wordInput { padding: 10px 12px; }
+    #toast { bottom: auto; top: 60px; }
   }
 </style>
 </head>
 <body>
 <canvas id="board"></canvas>
 
-<div id="hud">
-  <b>WordVine</b>
-  <div>칸을 클릭해 단어를 이어보세요.<br>
-  가로↔세로로만 교차, 사전 단어만 인정.<br>
-  붙어 있는 글자는 합쳐 읽거나 따로 읽을 수 있어요.<br>
-  드래그: 이동 · 휠: 확대/축소</div>
-  <div id="stats">단어 0개 · 접속 1명</div>
+<div id="brand">WordVine?</div>
+<div id="infoPanel" class="hidden">
+  <b>WordVine(낱말넝쿨)</b>
+  <div>모두가 함께 가꾸는 낱말넝쿨입니다.<br>
+  칸을 클릭해서 낱말을 이어주세요.</div>
+  <div id="stats">낱말수 0개, 접속자 1명</div>
 </div>
 <div id="status">연결 중…</div>
 
@@ -78,7 +100,7 @@
     <button id="dirH">가로 →</button>
     <button id="dirV">세로 ↓</button>
   </div>
-  <input id="wordInput" placeholder="단어 입력 (일부만 입력해도 OK)" autocomplete="off">
+  <input id="wordInput" placeholder="단어 입력" autocomplete="off">
   <div id="popupMsg"></div>
   <div class="actions">
     <button id="submitBtn">놓기</button>
@@ -374,6 +396,53 @@ canvas.addEventListener('wheel', e => {
   draw();
 }, { passive: false });
 
+// ---------- 터치 (모바일): 한 손가락 팬/탭, 두 손가락 핀치 줌 ----------
+let touch = null; // { mode, x, y, moved, t0, d, mx, my }
+const tDist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    touch = { mode: 'pan', x: t.clientX, y: t.clientY, sx: t.clientX, sy: t.clientY, moved: false, t0: Date.now() };
+  } else if (e.touches.length === 2) {
+    const [a, b] = e.touches;
+    touch = { mode: 'pinch', d: tDist(a, b), mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2 };
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!touch) return;
+  if (touch.mode === 'pan' && e.touches.length === 1) {
+    const t = e.touches[0];
+    const dx = t.clientX - touch.x, dy = t.clientY - touch.y;
+    if (Math.abs(t.clientX - touch.sx) + Math.abs(t.clientY - touch.sy) > 8) touch.moved = true;
+    camX -= dx / cellSize; camY -= dy / cellSize;
+    touch.x = t.clientX; touch.y = t.clientY;
+    draw();
+  } else if (touch.mode === 'pinch' && e.touches.length === 2) {
+    const [a, b] = e.touches;
+    const d = tDist(a, b);
+    const mx = (a.clientX + b.clientX) / 2, my = (a.clientY + b.clientY) / 2;
+    const [wx, wy] = [mx / cellSize + camX, my / cellSize + camY];
+    cellSize = Math.min(90, Math.max(18, cellSize * (d / touch.d)));
+    camX = wx - mx / cellSize;
+    camY = wy - my / cellSize;
+    touch.d = d; touch.mx = mx; touch.my = my;
+    draw();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (touch && touch.mode === 'pan' && !touch.moved && Date.now() - touch.t0 < 600 && e.touches.length === 0) {
+    const [cx, cy] = screenToCell(touch.sx, touch.sy);
+    openPopup(cx, cy, touch.sx, touch.sy);
+  }
+  touch = null;
+}, { passive: false });
+
 // ---------- 입력 팝업 ----------
 const popup = document.getElementById('popup');
 const wordInput = document.getElementById('wordInput');
@@ -401,8 +470,16 @@ function openPopup(cx, cy, px, py) {
   submitBtn.disabled = true;
   updateDirBtns();
   popup.style.display = 'block';
-  popup.style.left = Math.min(px + 10, innerWidth - 270) + 'px';
-  popup.style.top = Math.min(py + 10, innerHeight - 180) + 'px';
+  if (innerWidth <= 640) {
+    // 모바일: 하단 시트 (키보드에 가리지 않게)
+    popup.classList.add('sheet');
+    popup.style.left = '';
+    popup.style.top = '';
+  } else {
+    popup.classList.remove('sheet');
+    popup.style.left = Math.min(px + 10, innerWidth - 270) + 'px';
+    popup.style.top = Math.min(py + 10, innerHeight - 180) + 'px';
+  }
   wordInput.focus();
   draw();
 }
@@ -534,12 +611,18 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toast.style.display = 'none', 2500);
 }
 
+// ---------- 안내 패널 ----------
+const brand = document.getElementById('brand');
+const infoPanel = document.getElementById('infoPanel');
+brand.onclick = () => infoPanel.classList.toggle('hidden');
+if (innerWidth > 640) infoPanel.classList.remove('hidden'); // 데스크톱은 기본 표시
+
 // ---------- Firebase 실시간 동기화 ----------
 const statusEl = document.getElementById('status');
 const statsEl = document.getElementById('stats');
 
 function updateStats() {
-  statsEl.textContent = `단어 ${wordCount}개 · 접속 ${userCount}명`;
+  statsEl.textContent = `낱말수 ${wordCount}개, 접속자 ${userCount}명`;
 }
 
 firebase.initializeApp(window.FIREBASE_CONFIG);
