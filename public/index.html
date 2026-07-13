@@ -473,12 +473,16 @@ function draw() {
       const existing = cells.get(K(cx, cy));
       const activelyTyped = i >= typedFrom && i < typedTo;
       if (existing && !activelyTyped) {
-        cellBox(sx, sy, 'rgba(90,180,110,.18)', '#3e8e52', 2);
-        // 기존 글자는 반투명 베일을 덮어 흐릿하게 — 지금 새로 입력 중인 글자(선명한 색)와
-        // 한눈에 구분되도록 함
-        ctx.fillStyle = 'rgba(253, 250, 240, 0.8)';
+        // 원래 칸 배경으로 한 번 리셋해서 아래 깔린 진한(불투명) 검정 글자를 지운 다음,
+        // 정확히 20% 불투명도로 다시 그려서 지금 새로 입력 중인 글자와 뚜렷이 구분되게 함
+        ctx.fillStyle = '#fffdf7';
         roundRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3, 5);
         ctx.fill();
+        cellBox(sx, sy, 'rgba(90,180,110,.18)', '#3e8e52', 2);
+        if (existing.ch) {
+          ctx.fillStyle = 'rgba(34, 34, 34, 0.2)';
+          ctx.fillText(existing.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
+        }
       } else {
         cellBox(sx, sy, `hsla(${myHueVal}, 70%, 55%, .25)`, `hsl(${myHueVal}, 65%, 45%)`, 2);
         const ch = preview.word[i];
