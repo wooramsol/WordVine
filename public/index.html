@@ -547,6 +547,16 @@ function visibleHeight() {
   return Math.max(vh, 120);
 }
 
+// 브라우저마다 visualViewport.height가 키보드를 제대로 반영하지 않는 경우가 있어서(그러면
+// 화면이 키보드 높이만큼 위쪽으로 치우쳐 보임), 아예 API를 믿지 않고 "칸을 선택하면 곧 키보드가
+// 뜬다"고 가정해서 화면 하단 일정 비율을 항상 키보드 영역으로 빼고 계산함. 데스크톱처럼 화면이
+// 넓으면(키보드가 뜰 일이 없으면) 그대로 전체 높이를 씀.
+function usableHeight() {
+  const vh = visibleHeight();
+  if (!sel || innerWidth > 900) return vh;
+  return Math.max(150, vh * 0.6);
+}
+
 // 보이는 영역의 "맨 위"가 캔버스 기준으로 어디인지. 일부 모바일 브라우저는 입력창 포커스 시
 // 레이아웃 뷰포트는 안 스크롤돼도(overflow:hidden) 비주얼 뷰포트만 아래로 슬쩍 밀려서
 // (visualViewport.offsetTop > 0) 보이는 영역이 화면 맨 위가 아니게 되는 경우가 있음.
@@ -590,7 +600,7 @@ function fitBoard() {
 // 뒤늦게 화면이 확 튀는 느낌을 줬음 — 선택하는 순간 바로/예측 가능하게 중앙 정렬해서 방지)
 function centerOnSel() {
   if (!sel) return;
-  const vw = innerWidth, vh = visibleHeight(), vt = visibleTop();
+  const vw = innerWidth, vh = usableHeight(), vt = visibleTop();
   camX = sel.x + 0.5 - vw / (2 * cellSize);
   camY = sel.y + 0.5 - (vt + vh / 2) / cellSize;
 }
@@ -605,7 +615,7 @@ function ensureVisible() {
     maxX = Math.max(maxX, preview.startX + dx * (preview.word.length - 1));
     maxY = Math.max(maxY, preview.startY + dy * (preview.word.length - 1));
   }
-  const vw = innerWidth, vh = visibleHeight();
+  const vw = innerWidth, vh = usableHeight();
 
   // 스팬이 화면보다 크면 축소
   const spanW = (maxX - minX + 2) * cellSize;
