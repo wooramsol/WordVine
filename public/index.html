@@ -164,8 +164,6 @@ let preview = null;                 // { startX, startY, word, conflictTyped }
 let placing = false;
 let placedWordsIndex = new Map();   // canonical 단어 -> { x, y, dir, word } — 중복 단어 위치 하이라이트용
 let dupHighlight = null;            // 지금 입력이 중복 단어일 때, 이미 보드에 있는 그 단어들의 위치
-let fadeCells = [];                 // 지금 선택/입력 지점과 맞닿아 있는 기존 글자 칸들 — 사전 검증 성공 여부와
-                                     // 무관하게 "여기서 이어질 수도 있다"는 힌트로 항상 흐리게 표시
 
 // ---------- 두음법칙 ----------
 const Y_VOWELS = new Set([2, 6, 7, 12, 17, 20]); // ㅑ ㅕ ㅖ ㅛ ㅠ ㅣ
@@ -474,28 +472,25 @@ function draw() {
     }
   }
 
-  // 지금 선택/입력 지점과 맞닿은 기존 글자 칸은, 사전 검증이 아직 안 끝났어도(혹은 이 조합으로
-  // 끝내 단어가 안 만들어지더라도) "이어질 수 있는 자리"라는 힌트로 항상 흐리게 표시
-  if (sel && fadeCells.length) {
-    for (const [cx, cy] of fadeCells) {
-      const c = cells.get(K(cx, cy));
-      if (!c || c.captured) continue;
-      const [sx, sy] = worldToScreen(cx, cy);
+  // 지금 선택한 칸 "그 한 칸"에만 적용 — 원래 있던 글자를 20% 불투명도로 흐리게 깔아둬서,
+  // 그 위에 새로 입력하는 글자(아래 activelyTyped 렌더링)가 선명하게 덧그려질 때 잘 구분되게 함.
+  // 주변 칸(접두/접미로 이어붙는 기존 글자)은 건드리지 않음.
+  if (sel) {
+    const selCell = cells.get(K(sel.x, sel.y));
+    if (selCell && !selCell.captured && selCell.ch) {
+      const [sx, sy] = worldToScreen(sel.x, sel.y);
       ctx.fillStyle = '#fffdf7';
       roundRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3, 5);
       ctx.fill();
-      cellBox(sx, sy, 'rgba(90,180,110,.18)', '#3e8e52', 2);
-      if (c.ch) {
-        ctx.fillStyle = 'rgba(34, 34, 34, 0.2)';
-        ctx.fillText(c.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
-      }
+      ctx.fillStyle = 'rgba(34, 34, 34, 0.2)';
+      ctx.fillText(selCell.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
     }
   }
 
   if (sel && preview) {
     const dx = sel.dir === 'h' ? 1 : 0, dy = sel.dir === 'v' ? 1 : 0;
     // typedFrom~typedFrom+typedLen 구간만 그림 — 그 바깥(접두/접미로 이어붙은 기존 글자)은
-    // 위 fadeCells 렌더링에서 이미 흐리게 처리했으므로 여기서는 건드리지 않음(중복 방지)
+    // 건드리지 않고 원래 모습 그대로 둠(사용자가 주변 칸은 흐리게 하지 말라고 요청)
     const typedFrom = preview.typedFrom || 0;
     const typedTo = typedFrom + (preview.typedLen != null ? preview.typedLen : preview.word.length);
     for (let i = 0; i < preview.word.length; i++) {
@@ -759,7 +754,7 @@ function openPopup(cx, cy, px, py) {
   broadcastTyping();
 }
 function closePopup() {
-  sel = null; preview = null; placing = false; dupHighlight = null; fadeCells = [];
+  sel = null; preview = null; placing = false; dupHighlight = null;
   modeBadge.classList.remove('show');
   broadcastTyping();
   draw();
@@ -849,28 +844,6 @@ function checkPreview() {
   const typed = wordInput.value.trim();
   const dx = sel.dir === 'h' ? 1 : 0, dy = sel.dir === 'v' ? 1 : 0;
   dupHighlight = null; // 매번 새로 계산 — 중복 단어 상태일 때만 아래에서 다시 채움
-
-  // 지금 타이핑 중인 자리와 맞닿아 있는 기존 글자들을 찾아둠(사전에 맞는 단어로 인정되는지와
-  // 무관하게, 그냥 "이어질 수 있는 자리"라는 시각적 힌트로 항상 흐리게 보여주기 위함).
-  // resolvePlace 내부의 prefix/suffix 탐색과 같은 방식으로 맞닿은 칸을 앞뒤로 따라간다.
-  fadeCells = [];
-  {
-    let px = sel.x - dx, py = sel.y - dy;
-    while (true) {
-      const c = getLocalCell(px, py);
-      if (!c || c.captured) break;
-      fadeCells.push([px, py]);
-      px -= dx; py -= dy;
-    }
-    const tlen = typed.length || 1;
-    let six = sel.x + dx * tlen, siy = sel.y + dy * tlen;
-    while (true) {
-      const c = getLocalCell(six, siy);
-      if (!c || c.captured) break;
-      fadeCells.push([six, siy]);
-      six += dx; siy += dy;
-    }
-  }
 
   if (!typed) {
     preview = null;
