@@ -455,11 +455,17 @@ function draw() {
 
   if (sel && preview) {
     const dx = sel.dir === 'h' ? 1 : 0, dy = sel.dir === 'v' ? 1 : 0;
+    // typedFrom~typedFrom+typedLen 구간은 "지금 실제로 타이핑 중인 자리" — 그 칸에 이미
+    // 글자가 있었더라도(예: 기존 글자가 있는 칸부터 바로 새로 입력 시작) 항상 선명하게 덧그림.
+    // 그 바깥(접두/접미로 자동 이어붙은 확정된 기존 글자)만 반투명 처리 대상.
+    const typedFrom = preview.typedFrom || 0;
+    const typedTo = typedFrom + (preview.typedLen != null ? preview.typedLen : preview.word.length);
     for (let i = 0; i < preview.word.length; i++) {
       const cx = preview.startX + dx * i, cy = preview.startY + dy * i;
       const [sx, sy] = worldToScreen(cx, cy);
       const existing = cells.get(K(cx, cy));
-      if (existing) {
+      const activelyTyped = i >= typedFrom && i < typedTo;
+      if (existing && !activelyTyped) {
         cellBox(sx, sy, 'rgba(90,180,110,.18)', '#3e8e52', 2);
         // 기존 글자는 반투명 베일을 덮어 흐릿하게 — 지금 새로 입력 중인 글자(선명한 색)와
         // 한눈에 구분되도록 함
@@ -765,6 +771,7 @@ const getLocalCell = (x, y) => cells.get(K(x, y)) || null;
 function checkPreview() {
   if (!sel) return;
   const typed = wordInput.value.trim();
+  const dx = sel.dir === 'h' ? 1 : 0, dy = sel.dir === 'v' ? 1 : 0;
 
   if (!typed) {
     preview = null;
@@ -784,8 +791,10 @@ function checkPreview() {
   }
   // 아직 조합 중이라 완성된 음절이 아닌 자모가 하나라도 섞여 있으면, 사전/배치 검증 없이
   // 타이핑한 자모 그대로를 그 자리에 바로 보여주기만 함(완성되면 아래 정식 검증으로 넘어감).
+  // typedFrom/typedLen: preview.word 중 "지금 실제로 타이핑 중인 범위"를 표시해서, 이미 글자가
+  // 있는 칸에서 시작해도(=접두 없이 바로 그 칸부터 새로 침) 그 범위는 항상 선명하게 덧그려지게 함.
   if (!/^[가-힣]+$/.test(typed)) {
-    preview = { startX: sel.x, startY: sel.y, word: typed, conflictTyped: -1 };
+    preview = { startX: sel.x, startY: sel.y, word: typed, conflictTyped: -1, typedFrom: 0, typedLen: typed.length };
     setMsg('');
     submitEnabled = false;
     draw();
@@ -793,8 +802,9 @@ function checkPreview() {
   }
 
   const r = resolvePlace(typed, sel.x, sel.y, sel.dir, getLocalCell, cells.size === 0, usedWords);
+  const typedFrom = r.startX !== undefined ? (dx ? (sel.x - r.startX) : (sel.y - r.startY)) : 0;
   if (r.ok) {
-    preview = { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: -1 };
+    preview = { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: -1, typedFrom, typedLen: typed.length };
     setMsg(r.canonical !== r.word
       ? `✓ '${r.word}' — 두음법칙 인정! (${r.canonical})`
       : `✓ '${r.word}' — 사전에 있어요!`, true);
@@ -803,8 +813,8 @@ function checkPreview() {
     // 사전에 아직 없거나(타이핑 중) 너무 짧아도, 입력 중인 글자 자체는 항상 화면에 보여준다.
     // (완성된 사전 단어일 때만 미리보기를 그리면 타이핑 도중엔 아무것도 안 보여서 "입력이 안 된다"로 오인됨)
     preview = r.word
-      ? { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: r.conflictTyped ?? -1 }
-      : { startX: sel.x, startY: sel.y, word: typed, conflictTyped: -1 };
+      ? { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: r.conflictTyped ?? -1, typedFrom, typedLen: typed.length }
+      : { startX: sel.x, startY: sel.y, word: typed, conflictTyped: -1, typedFrom: 0, typedLen: typed.length };
     setMsg(r.err);
     submitEnabled = false;
   }
