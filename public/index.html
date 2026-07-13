@@ -228,17 +228,6 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty) {
     const startX = uP ? sx : x;
     const startY = uP ? sy : y;
 
-    let dirErr = null;
-    for (let i = 0; i < word.length; i++) {
-      const ex = getCell(startX + dx * i, startY + dy * i);
-      if (ex && ex.dirs.includes(dir)) {
-        const d1 = dir === 'h' ? '가로' : '세로', d2 = dir === 'h' ? '세로' : '가로';
-        dirErr = { kind: 'dir', msg: `'${ex.ch}'는 이미 ${d1} 단어의 일부입니다. ${d1}는 ${d2} 단어에서만 이을 수 있어요.` };
-        break;
-      }
-    }
-    if (dirErr) { fails.push(dirErr); continue; }
-
     if (!DICT) return { err: '사전을 아직 불러오는 중이에요…' };
     const firstExisting = !!getCell(startX, startY);
     const canonical = dictLookup(word, firstExisting);
@@ -251,8 +240,6 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty) {
   if (dictWords.length) {
     return { err: dictWords.map(w => `'${w}'`).join(', ') + '(으)로 읽어도 사전에 없는 단어입니다.' };
   }
-  const dirF = fails.find(f => f.kind === 'dir');
-  if (dirF) return { err: dirF.msg };
   const conf = fails.find(f => f.kind === 'conflict');
   if (conf) return { err: conf.msg, conflictTyped: conf.i, word: prefix + typed + suffix, startX: sx, startY: sy };
   const long = fails.find(f => f.kind === 'long');
@@ -296,14 +283,13 @@ function cellBox(sx, sy, fill, stroke, lw) {
   ctx.stroke();
 }
 
+// 가로/세로 1회 제한 규칙 삭제: 어떤 칸이든 항상 이어서 쓸 수 있음
 function isBlocked(x, y) {
-  const c = cells.get(K(x, y));
-  return !!c && c.dirs.includes('h') && c.dirs.includes('v');
+  return false;
 }
 
 function dirAvailable(x, y, dir) {
-  const c = cells.get(K(x, y));
-  return !(c && c.dirs.includes(dir));
+  return true;
 }
 
 function draw() {
@@ -537,18 +523,14 @@ const dirV = document.getElementById('dirV');
 const submitBtn = document.getElementById('submitBtn');
 
 function openPopup(cx, cy, px, py) {
-  const hOk = dirAvailable(cx, cy, 'h');
-  const vOk = dirAvailable(cx, cy, 'v');
-  // 가로·세로 모두 막힌 칸도 선택은 허용 (방향키로 지나쳐 다른 칸까지 이동할 수 있어야 함)
-  dirH.disabled = !hOk;
-  dirV.disabled = !vOk;
-  let dir = sel?.dir || 'h';
-  if (dir === 'h' && !hOk) dir = 'v';
-  if (dir === 'v' && !vOk) dir = 'h';
+  // 가로/세로 1회 제한이 없어져 모든 칸에서 두 방향 다 항상 선택 가능
+  dirH.disabled = false;
+  dirV.disabled = false;
+  const dir = sel?.dir || 'h';
   sel = { x: cx, y: cy, dir };
   preview = null;
   wordInput.value = '';
-  setMsg(!hOk && !vOk ? '이 칸은 가로·세로 모두 사용 중이에요. 화살표로 다른 칸으로 이동해 보세요.' : '');
+  setMsg('');
   submitBtn.disabled = true;
   updateDirBtns();
   popup.style.display = 'block';
