@@ -66,7 +66,11 @@
   #wordInput {
     position: fixed; z-index: 20; opacity: 1; border: none; padding: 0; margin: 0;
     font-size: 16px; color: transparent; background: transparent; caret-color: transparent;
-    pointer-events: none; min-width: 24px; min-height: 24px; outline: none; box-shadow: none;
+    /* pointer-events:none을 쓰지 않음 — iOS 등 일부 모바일 브라우저는 pointer-events:none인
+       input은 JS로 focus()해도 소프트웨어 키보드를 안 띄우는 경우가 있음. wordInput은 항상
+       "지금 선택된 칸" 위에만 걸쳐 있어서, 그 칸을 다시 탭했을 때 네이티브로 재포커스되는 것도
+       문제 없음(이미 그 칸이 선택된 상태이므로). */
+    min-width: 24px; min-height: 24px; outline: none; box-shadow: none;
   }
   #modeBadge {
     position: fixed; z-index: 21; display: none;
@@ -334,6 +338,13 @@ addEventListener('resize', resize);
 
 function worldToScreen(wx, wy) { return [(wx - camX) * cellSize, (wy - camY) * cellSize]; }
 function screenToCell(sx, sy) { return [Math.floor(sx / cellSize + camX), Math.floor(sy / cellSize + camY)]; }
+// clientX/clientY(뷰포트 기준)를 캔버스 기준 좌표로 변환. 캔버스가 항상 (0,0)에 딱 붙어있다는
+// 가정 대신 실제 위치(getBoundingClientRect)를 매번 확인해서, 모바일에서 주소창 접힘/노치 등으로
+// 생기는 미세한 오프셋 때문에 탭한 칸과 실제 선택되는 칸이 어긋나는 문제를 방지함.
+function toCanvasXY(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  return [clientX - rect.left, clientY - rect.top];
+}
 
 function roundRect(x, y, w, h, r) {
   ctx.beginPath();
@@ -612,17 +623,19 @@ addEventListener('mousemove', e => {
 addEventListener('mouseup', e => {
   canvas.classList.remove('dragging');
   if (dragging && !moved && e.target === canvas) {
-    const [cx, cy] = screenToCell(e.clientX, e.clientY);
-    openPopup(cx, cy, e.clientX, e.clientY);
+    const [ex, ey] = toCanvasXY(e.clientX, e.clientY);
+    const [cx, cy] = screenToCell(ex, ey);
+    openPopup(cx, cy, ex, ey);
   }
   dragging = false;
 });
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
-  const [wx, wy] = [e.clientX / cellSize + camX, e.clientY / cellSize + camY];
+  const [ex, ey] = toCanvasXY(e.clientX, e.clientY);
+  const [wx, wy] = [ex / cellSize + camX, ey / cellSize + camY];
   cellSize = Math.min(90, Math.max(18, cellSize * (e.deltaY < 0 ? 1.1 : 0.9)));
-  camX = wx - e.clientX / cellSize;
-  camY = wy - e.clientY / cellSize;
+  camX = wx - ex / cellSize;
+  camY = wy - ey / cellSize;
   draw();
 }, { passive: false });
 
@@ -637,11 +650,14 @@ const tDist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
 canvas.addEventListener('touchstart', e => {
   if (e.touches.length === 1) {
     const t = e.touches[0];
-    touch = { mode: 'pan', x: t.clientX, y: t.clientY, sx: t.clientX, sy: t.clientY, moved: false, t0: Date.now() };
+    const [ex, ey] = toCanvasXY(t.clientX, t.clientY);
+    touch = { mode: 'pan', x: ex, y: ey, sx: ex, sy: ey, moved: false, t0: Date.now() };
   } else if (e.touches.length === 2) {
     e.preventDefault(); // 두 손가락은 핀치줌 의도가 확실하므로 바로 막음
     const [a, b] = e.touches;
-    touch = { mode: 'pinch', d: tDist(a, b), mx: (a.clientX + b.clientX) / 2, my: (a.clientY + b.clientY) / 2 };
+    const [amx, amy] = toCanvasXY(a.clientX, a.clientY);
+    const [bmx, bmy] = toCanvasXY(b.clientX, b.clientY);
+    touch = { mode: 'pinch', d: tDist(a, b), mx: (amx + bmx) / 2, my: (amy + bmy) / 2 };
   }
 }, { passive: false });
 
@@ -649,17 +665,20 @@ canvas.addEventListener('touchmove', e => {
   if (!touch) return;
   if (touch.mode === 'pan' && e.touches.length === 1) {
     const t = e.touches[0];
-    const dx = t.clientX - touch.x, dy = t.clientY - touch.y;
-    if (Math.abs(t.clientX - touch.sx) + Math.abs(t.clientY - touch.sy) > 8) touch.moved = true;
+    const [ex, ey] = toCanvasXY(t.clientX, t.clientY);
+    const dx = ex - touch.x, dy = ey - touch.y;
+    if (Math.abs(ex - touch.sx) + Math.abs(ey - touch.sy) > 8) touch.moved = true;
     if (touch.moved) e.preventDefault(); // 실제로 움직이기 시작한 뒤에만 스크롤 등 기본 동작을 막음
     camX -= dx / cellSize; camY -= dy / cellSize;
-    touch.x = t.clientX; touch.y = t.clientY;
+    touch.x = ex; touch.y = ey;
     draw();
   } else if (touch.mode === 'pinch' && e.touches.length === 2) {
     e.preventDefault();
     const [a, b] = e.touches;
     const d = tDist(a, b);
-    const mx = (a.clientX + b.clientX) / 2, my = (a.clientY + b.clientY) / 2;
+    const [amx, amy] = toCanvasXY(a.clientX, a.clientY);
+    const [bmx, bmy] = toCanvasXY(b.clientX, b.clientY);
+    const mx = (amx + bmx) / 2, my = (amy + bmy) / 2;
     const [wx, wy] = [mx / cellSize + camX, my / cellSize + camY];
     cellSize = Math.min(90, Math.max(18, cellSize * (d / touch.d)));
     camX = wx - mx / cellSize;
