@@ -72,24 +72,20 @@
        문제 없음(이미 그 칸이 선택된 상태이므로). */
     min-width: 24px; min-height: 24px; outline: none; box-shadow: none;
   }
-  /* 방향 배지(모드 전환) + 입력(제출) 버튼을 한 줄로 묶어서 선택 칸 위에 띄움.
-     둘 다 터치하기 편하도록 넉넉한 크기로 만들고, 그리드 칸과 안 겹치게 충분히 띄움. */
-  #selToolbar {
+  /* 방향 전환 배지 — 선택 칸 위에 띄움. 터치하기 편하도록 넉넉한 크기로 만들고,
+     그리드 칸과 안 겹치게 충분히 띄움. 제출은 키보드 Enter로만 함(별도 버튼 없음). */
+  #modeBadge {
     position: fixed; z-index: 21; display: none;
-    gap: 6px; transform: translate(-50%, -155%);
-  }
-  #selToolbar.show { display: flex; }
-  #modeBadge, #submitBadge {
     padding: 8px 14px; border-radius: 12px; font-size: 14px; font-weight: 700;
     background: #eee7d8; color: #6b5e3f; border: 1.5px solid #cfc7b5;
-    white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    white-space: nowrap; transform: translate(-50%, -155%);
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
     cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
-    min-height: 34px; display: flex; align-items: center; justify-content: center;
-    font-family: inherit; -webkit-appearance: none; appearance: none; outline: none;
+    align-items: center; justify-content: center;
   }
-  #submitBadge { background: #e5e0d3; color: #8a7a4f; border-color: #d8d2c4; }
-  #submitBadge.ready { background: #dcefdb; color: #2c6e2f; border-color: #8fcf93; }
-  #submitBadge.err { background: #f7dcdc; color: #a23c3c; border-color: #e29a9a; }
+  #modeBadge.show { display: flex; }
+  #modeBadge.ok { background: #dcefdb; color: #2c6e2f; border-color: #8fcf93; }
+  #modeBadge.err { background: #f7dcdc; color: #a23c3c; border-color: #e29a9a; }
 
   #toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -128,10 +124,7 @@
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
 <input id="wordInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" lang="ko">
-<div id="selToolbar">
-  <div id="modeBadge"></div>
-  <button id="submitBadge" type="button">입력</button>
-</div>
+<div id="modeBadge"></div>
 
 <div id="toast"></div>
 
@@ -720,24 +713,20 @@ canvas.addEventListener('touchend', e => {
 
 // ---------- 칸 선택 / 직접 입력 ----------
 // wordInput: 화면엔 안 보이지만 실제 <input>이라 한글 IME 조합이 정상 동작함.
-// selToolbar: 가로/세로 전환 배지 + 입력(제출) 버튼을 한 줄로 묶은 툴바.
-// (모바일 키보드의 "완료"/체크 아이콘은 기기·브라우저마다 표시가 달라 헷갈리기 쉬워서,
-// 항상 같은 모양의 '입력' 버튼을 화면에 직접 두고 그걸로 제출하게 함)
+// modeBadge: 가로/세로 모드만 표시. 제출은 버튼 없이 키보드 Enter로만 함.
 const wordInput = document.getElementById('wordInput');
-const selToolbar = document.getElementById('selToolbar');
 const modeBadge = document.getElementById('modeBadge');
-const submitBadge = document.getElementById('submitBadge');
-let submitEnabled = false; // Enter 또는 '입력' 버튼으로 제출 가능한 상태인지
+let submitEnabled = false; // Enter로 제출 가능한 상태인지
 
-// 툴바는 팬/줌 중에도 선택 칸을 계속 따라다녀야 하므로 draw()에서 매번 호출됨 (안전 — 포커스 없음)
+// 배지는 팬/줌 중에도 선택 칸을 계속 따라다녀야 하므로 draw()에서 매번 호출됨 (안전 — 포커스 없음)
 function positionSelUI() {
-  if (!sel) { selToolbar.classList.remove('show'); return; }
-  // 이미 차지된(포획된) 영역은 선택만 될 뿐 입력할 수 없으므로, 툴바는 띄우지 않음
-  if (cells.get(K(sel.x, sel.y))?.captured) { selToolbar.classList.remove('show'); return; }
+  if (!sel) { modeBadge.classList.remove('show'); return; }
+  // 이미 차지된(포획된) 영역은 선택만 될 뿐 입력할 수 없으므로, 배지는 띄우지 않음
+  if (cells.get(K(sel.x, sel.y))?.captured) { modeBadge.classList.remove('show'); return; }
   const [sx, sy] = worldToScreen(sel.x, sel.y);
-  selToolbar.style.left = (sx + cellSize / 2) + 'px';
-  selToolbar.style.top = sy + 'px';
-  selToolbar.classList.add('show');
+  modeBadge.style.left = (sx + cellSize / 2) + 'px';
+  modeBadge.style.top = sy + 'px';
+  modeBadge.classList.add('show');
 }
 
 // wordInput은 칸을 "새로 선택"할 때만 위치를 맞춘다. 타이핑 중(한글 조합 중) 위치/크기가
@@ -768,7 +757,7 @@ function openPopup(cx, cy, px, py) {
 }
 function closePopup() {
   sel = null; preview = null; placing = false; dupHighlight = null;
-  selToolbar.classList.remove('show');
+  modeBadge.classList.remove('show');
   broadcastTyping();
   draw();
 }
@@ -786,13 +775,13 @@ function broadcastTyping() {
     }
   }, 150);
 }
-// 텍스트 상자가 없으므로 메시지는 '입력' 버튼 색깔(초록=성공/빨강=에러)로만 표시하고,
+// 텍스트 상자가 없으므로 메시지는 배지 색깔(초록=성공/빨강=에러)로만 표시하고,
 // 실제 문구는 toast로 짧게 띄운다.
 function setMsg(text, ok) {
-  submitBadge.classList.toggle('ready', !!ok);
-  submitBadge.classList.toggle('err', !ok && !!text);
-  if (text) submitBadge.title = text;
-  else submitBadge.removeAttribute('title');
+  modeBadge.classList.toggle('ok', !!ok);
+  modeBadge.classList.toggle('err', !ok && !!text);
+  if (text) modeBadge.title = text;
+  else modeBadge.removeAttribute('title');
 }
 function updateModeBadge() {
   if (!sel) return;
@@ -847,12 +836,6 @@ function toggleDir() {
 modeBadge.addEventListener('click', () => {
   toggleDir();
   wordInput.focus(); // 배지를 탭하는 동안 포커스가 빠졌다면 다시 입력 가능하도록 복구
-});
-// 모바일 키보드의 완료/체크 키는 기기마다 표시가 제각각이라 헷갈리므로, 항상 같은 '입력'
-// 버튼으로 제출할 수 있게 함(Enter 키 제출은 그대로 유지 — 둘 다 같은 submit()을 호출)
-submitBadge.addEventListener('click', () => {
-  if (submitEnabled) submit();
-  wordInput.focus();
 });
 
 const getLocalCell = (x, y) => cells.get(K(x, y)) || null;
