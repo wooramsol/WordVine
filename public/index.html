@@ -740,8 +740,22 @@ function positionWordInput() {
   wordInput.style.height = cellSize + 'px';
 }
 
+// 칸을 선택할 때, 그 칸(또는 빈 칸이면 상하좌우 인접 칸)에 이미 연결된 방향이 있으면
+// 그 방향을 우선 채택함. 예전엔 항상 이전 선택의 방향(기본 가로)을 그대로 물려받아서,
+// 빈 칸 위/아래에만 기존 글자가 있는 경우(=세로로 이어야 하는 자리)에도 계속 가로로 남아있어
+// 그 글자를 못 읽는(=단어로 안 붙는) 버그가 있었음.
+function autoDetectDir(cx, cy) {
+  const c = cells.get(K(cx, cy));
+  if (c && !c.captured && c.dirs && c.dirs.length === 1) return c.dirs[0];
+  const hasH = cells.has(K(cx - 1, cy)) || cells.has(K(cx + 1, cy));
+  const hasV = cells.has(K(cx, cy - 1)) || cells.has(K(cx, cy + 1));
+  if (hasH && !hasV) return 'h';
+  if (hasV && !hasH) return 'v';
+  return sel?.dir || 'h'; // 교차점이거나 인접 글자가 아예 없으면 기존/기본 방향 유지
+}
+
 function openPopup(cx, cy, px, py) {
-  const dir = sel?.dir || 'h';
+  const dir = autoDetectDir(cx, cy);
   sel = { x: cx, y: cy, dir };
   preview = null;
   wordInput.value = '';
