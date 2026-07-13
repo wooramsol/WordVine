@@ -37,9 +37,9 @@
   #credit a { color: #a08c5a; text-decoration: none; }
   #credit a:hover { text-decoration: underline; }
   #topRight { position: fixed; top: 12px; right: 12px; z-index: 10; display: flex; gap: 6px; }
-  #status, #userCountTag { font-size: 12px; padding: 6px 10px; border-radius: 20px;
+  #userCountTag { font-size: 12px; padding: 6px 10px; border-radius: 20px;
     background: #e5e0d3; color: #777; white-space: nowrap; }
-  #status.on { background: #dcefdb; color: #2c6e2f; }
+  #userCountTag.on { background: #dcefdb; color: #2c6e2f; }
 
   #leaderboard {
     position: fixed; top: 46px; right: 12px; z-index: 10;
@@ -118,8 +118,7 @@
   <div id="credit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
 </div>
 <div id="topRight">
-  <div id="status">연결 중…</div>
-  <div id="userCountTag">접속자 1명</div>
+  <div id="userCountTag">현재접속자 1명</div>
 </div>
 <div id="leaderboard" class="hidden">
   <b>점수표</b>
@@ -1029,11 +1028,11 @@ resetBoardBtn.onclick = () => {
 if (innerWidth > 640) infoPanel.classList.remove('hidden'); // 데스크톱은 기본 표시
 
 // ---------- Firebase 실시간 동기화 ----------
-const statusEl = document.getElementById('status');
 const userCountTagEl = document.getElementById('userCountTag');
+let connected = false; // 실시간 연결 상태 — 접속자 태그 색/점으로 함께 표시
 
 function updateStats() {
-  userCountTagEl.textContent = `접속자 ${userCount}명`;
+  userCountTagEl.textContent = (connected ? '● ' : '') + `현재접속자 ${userCount}명`;
 }
 
 // ---------- 땅따먹기 리더보드 ----------
@@ -1077,7 +1076,7 @@ fetch('words.txt')
     console.log(`사전 로드 완료: ${DICT.size.toLocaleString()}개 명사`);
     if (sel) checkPreview();
   })
-  .catch(() => { statusEl.textContent = '사전 로드 실패 — 새로고침 해주세요'; });
+  .catch(() => { showToast('사전 로드 실패 — 새로고침 해주세요'); });
 
 // ---------- 부트스트랩: IP 기반 플레이어 ID 확정 후 Firebase 연결 ----------
 async function boot() {
@@ -1087,18 +1086,17 @@ async function boot() {
   const db = firebase.database();
   boardRef = db.ref('board');
 
-  // 연결 상태 + 내 프레즌스(접속 표시 + 실시간 입력 상황 브로드캐스트)
+  // 연결 상태 + 내 프레즌스(접속 표시 + 실시간 입력 상황 브로드캐스트) — 연결 상태는
+  // 별도 태그 없이 접속자 태그의 점(●)/색으로만 표시
   db.ref('.info/connected').on('value', snap => {
-    if (snap.val()) {
-      statusEl.textContent = '● 실시간 연결됨';
-      statusEl.classList.add('on');
+    connected = !!snap.val();
+    userCountTagEl.classList.toggle('on', connected);
+    updateStats();
+    if (connected) {
       // 접속자 표시 + 선택 칸/입력 중인 글자 브로드캐스트 (연결이 끊기면 자동 제거)
       myPresenceRef = db.ref('presence/' + clientId);
       myPresenceRef.set({ ts: Date.now() });
       myPresenceRef.onDisconnect().remove();
-    } else {
-      statusEl.textContent = '연결 끊김, 재시도 중…';
-      statusEl.classList.remove('on');
     }
   });
 
