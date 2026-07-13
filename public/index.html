@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>무한 십자낱말</title>
+<title>WordVine — 무한 십자낱말</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
@@ -64,7 +64,7 @@
 <canvas id="board"></canvas>
 
 <div id="hud">
-  <b>무한 십자낱말</b>
+  <b>WordVine</b>
   <div>칸을 클릭해 단어를 이어보세요.<br>
   가로↔세로로만 교차, 사전 단어만 인정.<br>
   붙어 있는 글자는 합쳐 읽거나 따로 읽을 수 있어요.<br>
@@ -88,12 +88,16 @@
 
 <div id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="firebase-config.js"></script>
 <script>
 'use strict';
 // ---------- 상태 ----------
 const cells = new Map();            // "x,y" -> { ch, dirs:[], fresh }
 const K = (x, y) => x + ',' + y;
-let wordCount = 0, userCount = 1, version = -1;
+let wordCount = 0, userCount = 1;
+let DICT = null;                    // 사전 (Hosting에서 로드)
 const clientId = (() => {
   try {
     let id = localStorage.getItem('wv-id');
@@ -108,7 +112,7 @@ let sel = null;                     // { x, y, dir }
 let preview = null;                 // { startX, startY, word, conflictTyped }
 let placing = false;
 
-// ---------- 두음법칙 (서버와 동일) ----------
+// ---------- 두음법칙 ----------
 const Y_VOWELS = new Set([2, 6, 7, 12, 17, 20]); // ㅑ ㅕ ㅖ ㅛ ㅠ ㅣ
 function dueumVariants(ch) {
   const code = ch.charCodeAt(0) - 0xac00;
@@ -120,6 +124,111 @@ function dueumVariants(ch) {
   if (ini === 5) return [Y_VOWELS.has(vow) ? make(11) : make(2)]; // ㄹ → ㅇ/ㄴ
   if (ini === 2 && Y_VOWELS.has(vow)) return [make(11)];          // ㄴ → ㅇ
   return [];
+}
+
+function dictLookup(word, firstExisting) {
+  if (DICT.has(word)) return word;
+  if (firstExisting) {
+    for (const v of dueumVariants(word[0])) {
+      const cand = v + word.slice(1);
+      if (DICT.has(cand)) return cand;
+    }
+  }
+  return null;
+}
+
+// ---------- 배치 판독 (병합/분리 + 두음법칙 + 사전) ----------
+// getCell(x,y) -> { ch, dirs:[] } | null 을 받아 어떤 상태에서든 검증 가능
+// (미리보기: 로컬 Map, 트랜잭션: DB 스냅샷)
+function resolvePlace(typed, x, y, dir, getCell, boardEmpty) {
+  const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
+
+  let prefix = '', sx = x, sy = y;
+  while (true) {
+    const ex = getCell(sx - dx, sy - dy);
+    if (!ex) break;
+    prefix = ex.ch + prefix;
+    sx -= dx; sy -= dy;
+  }
+  let suffix = '', ei = typed.length, ex2;
+  while ((ex2 = getCell(x + dx * ei, y + dy * ei))) { suffix += ex2.ch; ei++; }
+
+  const tCells = [];
+  let overlap = 0, newCount = 0;
+  for (let i = 0; i < typed.length; i++) {
+    const ex = getCell(x + dx * i, y + dy * i);
+    tCells.push(ex);
+    if (ex) overlap++; else newCount++;
+  }
+  if (newCount === 0) return { err: '이미 모두 채워진 자리입니다.' };
+  if (!boardEmpty && overlap === 0 && !prefix && !suffix) {
+    return { err: '기존 단어와 최소 한 글자는 이어져야 합니다.' };
+  }
+
+  const combos = [];
+  const push = (uP, uS) => {
+    const len = (uP ? prefix.length : 0) + typed.length + (uS ? suffix.length : 0);
+    if (!combos.some(c => c.uP === uP && c.uS === uS)) combos.push({ uP, uS, len });
+  };
+  push(prefix.length > 0, suffix.length > 0);
+  push(prefix.length > 0, false);
+  push(false, suffix.length > 0);
+  push(false, false);
+  combos.sort((a, b) => b.len - a.len);
+
+  const fails = [];
+  for (const { uP, uS } of combos) {
+    let gridTyped = '', conflict = null;
+    for (let i = 0; i < typed.length; i++) {
+      const ex = tCells[i];
+      if (ex) {
+        const dueumOk = i === 0 && !uP && dueumVariants(ex.ch).includes(typed[i]);
+        if (ex.ch !== typed[i] && !dueumOk) {
+          conflict = { kind: 'conflict', i, msg: `${i + 1}번째 칸의 기존 글자('${ex.ch}')와 다릅니다.` };
+          break;
+        }
+        gridTyped += ex.ch;
+      } else gridTyped += typed[i];
+    }
+    if (conflict) { fails.push(conflict); continue; }
+
+    const word = (uP ? prefix : '') + gridTyped + (uS ? suffix : '');
+    if (word.length < 2) { fails.push({ kind: 'short' }); continue; }
+    if (word.length > 15) { fails.push({ kind: 'long', msg: '완성 단어가 15글자를 넘습니다.' }); continue; }
+
+    const startX = uP ? sx : x;
+    const startY = uP ? sy : y;
+
+    let dirErr = null;
+    for (let i = 0; i < word.length; i++) {
+      const ex = getCell(startX + dx * i, startY + dy * i);
+      if (ex && ex.dirs.includes(dir)) {
+        const d1 = dir === 'h' ? '가로' : '세로', d2 = dir === 'h' ? '세로' : '가로';
+        dirErr = { kind: 'dir', msg: `'${ex.ch}'는 이미 ${d1} 단어의 일부입니다. ${d1}는 ${d2} 단어에서만 이을 수 있어요.` };
+        break;
+      }
+    }
+    if (dirErr) { fails.push(dirErr); continue; }
+
+    if (!DICT) return { err: '사전을 아직 불러오는 중이에요…' };
+    const firstExisting = !!getCell(startX, startY);
+    const canonical = dictLookup(word, firstExisting);
+    if (!canonical) { fails.push({ kind: 'dict', word }); continue; }
+
+    return { ok: true, word, canonical, startX, startY };
+  }
+
+  const dictWords = [...new Set(fails.filter(f => f.kind === 'dict').map(f => f.word))];
+  if (dictWords.length) {
+    return { err: dictWords.map(w => `'${w}'`).join(', ') + '(으)로 읽어도 사전에 없는 단어입니다.' };
+  }
+  const dirF = fails.find(f => f.kind === 'dir');
+  if (dirF) return { err: dirF.msg };
+  const conf = fails.find(f => f.kind === 'conflict');
+  if (conf) return { err: conf.msg, conflictTyped: conf.i, word: prefix + typed + suffix, startX: sx, startY: sy };
+  const long = fails.find(f => f.kind === 'long');
+  if (long) return { err: long.msg };
+  return { err: '두 글자 이상 입력하세요.' };
 }
 
 // ---------- 캔버스 ----------
@@ -158,14 +267,11 @@ function cellBox(sx, sy, fill, stroke, lw) {
   ctx.stroke();
 }
 
-// 가로·세로 모두 이미 사용된 칸 (더 이상 어떤 단어도 시작 불가)
 function isBlocked(x, y) {
   const c = cells.get(K(x, y));
   return !!c && c.dirs.includes('h') && c.dirs.includes('v');
 }
 
-// 이 칸에서 dir 방향 단어를 놓을 수 있는지
-// (분리 판독이 가능하므로, 칸 자체가 같은 방향 단어에 속한 경우만 불가)
 function dirAvailable(x, y, dir) {
   const c = cells.get(K(x, y));
   return !(c && c.dirs.includes(dir));
@@ -178,7 +284,6 @@ function draw() {
   const x0 = Math.floor(camX), y0 = Math.floor(camY);
   const x1 = Math.ceil(camX + innerWidth / cellSize), y1 = Math.ceil(camY + innerHeight / cellSize);
 
-  // 격자
   ctx.strokeStyle = '#e3ddd0'; ctx.lineWidth = 1;
   ctx.beginPath();
   for (let x = x0; x <= x1; x++) { const [sx] = worldToScreen(x, 0); ctx.moveTo(sx, 0); ctx.lineTo(sx, innerHeight); }
@@ -190,7 +295,6 @@ function draw() {
   ctx.font = Math.floor(cellSize * 0.55) + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
   const now = Date.now();
 
-  // 채워진 셀
   for (const [k, c] of cells) {
     const [x, y] = k.split(',').map(Number);
     if (x < x0 - 1 || x > x1 || y < y0 - 1 || y > y1) continue;
@@ -205,7 +309,6 @@ function draw() {
     ctx.fillText(c.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
   }
 
-  // 미리보기 (채택된 판독 구간)
   if (sel && preview) {
     const dx = sel.dir === 'h' ? 1 : 0, dy = sel.dir === 'v' ? 1 : 0;
     for (let i = 0; i < preview.word.length; i++) {
@@ -220,7 +323,6 @@ function draw() {
         if (ch) { ctx.fillStyle = '#3b6ea5'; ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1); }
       }
     }
-    // 충돌 칸 (입력 구간 기준)
     if (preview.conflictTyped >= 0) {
       const cx = sel.x + dx * preview.conflictTyped, cy = sel.y + dy * preview.conflictTyped;
       const [sx, sy] = worldToScreen(cx, cy);
@@ -271,89 +373,6 @@ canvas.addEventListener('wheel', e => {
   camY = wy - e.clientY / cellSize;
   draw();
 }, { passive: false });
-
-// ---------- 로컬 구조 검사 (즉시 미리보기용, 사전 검증은 서버 /preview) ----------
-function resolveLocal(typed, x, y, dir) {
-  const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
-
-  let prefix = '', sx = x, sy = y;
-  while (true) {
-    const ex = cells.get(K(sx - dx, sy - dy));
-    if (!ex) break;
-    prefix = ex.ch + prefix;
-    sx -= dx; sy -= dy;
-  }
-  let suffix = '', ei = typed.length, ex2;
-  while ((ex2 = cells.get(K(x + dx * ei, y + dy * ei)))) { suffix += ex2.ch; ei++; }
-
-  const tCells = [];
-  let overlap = 0, newCount = 0;
-  for (let i = 0; i < typed.length; i++) {
-    const ex = cells.get(K(x + dx * i, y + dy * i)) || null;
-    tCells.push(ex);
-    if (ex) overlap++; else newCount++;
-  }
-  if (typed.length && newCount === 0) return { err: '이미 모두 채워진 자리입니다.' };
-  if (cells.size > 0 && typed.length && overlap === 0 && !prefix && !suffix) {
-    return { err: '기존 단어와 최소 한 글자는 이어져야 합니다.' };
-  }
-
-  // 후보(긴 판독부터): 구조적으로 가능한 첫 후보를 미리보기로
-  const combos = [];
-  const push = (uP, uS) => { if (!combos.some(c => c.uP === uP && c.uS === uS)) combos.push({ uP, uS }); };
-  push(prefix.length > 0, suffix.length > 0);
-  push(prefix.length > 0, false);
-  push(false, suffix.length > 0);
-  push(false, false);
-  combos.sort((a, b) =>
-    ((b.uP ? prefix.length : 0) + (b.uS ? suffix.length : 0)) -
-    ((a.uP ? prefix.length : 0) + (a.uS ? suffix.length : 0)));
-
-  let firstConflict = null, dirErrMsg = null;
-  for (const { uP, uS } of combos) {
-    let gridTyped = '', conflictAt = -1;
-    for (let i = 0; i < typed.length; i++) {
-      const ex = tCells[i];
-      if (ex) {
-        const dueumOk = i === 0 && !uP && dueumVariants(ex.ch).includes(typed[i]);
-        if (ex.ch !== typed[i] && !dueumOk) { conflictAt = i; break; }
-        gridTyped += ex.ch;
-      } else gridTyped += typed[i];
-    }
-    if (conflictAt >= 0) { if (firstConflict === null) firstConflict = conflictAt; continue; }
-
-    const word = (uP ? prefix : '') + gridTyped + (uS ? suffix : '');
-    const startX = uP ? sx : x, startY = uP ? sy : y;
-    if (word.length > 15) continue;
-
-    let dirBad = false;
-    for (let i = 0; i < word.length; i++) {
-      const ex = cells.get(K(startX + dx * i, startY + dy * i));
-      if (ex && ex.dirs.includes(dir)) {
-        dirBad = true;
-        if (!dirErrMsg) {
-          const d1 = dir === 'h' ? '가로' : '세로', d2 = dir === 'h' ? '세로' : '가로';
-          dirErrMsg = `'${ex.ch}'는 이미 ${d1} 단어예요. ${d1}는 ${d2}에서만 이을 수 있어요.`;
-        }
-        break;
-      }
-    }
-    if (dirBad) continue;
-
-    if (word.length < 2) return { incomplete: true, word, startX, startY };
-    return { ok: true, word, startX, startY };
-  }
-
-  if (dirErrMsg) return { err: dirErrMsg };
-  if (firstConflict !== null) {
-    return {
-      err: `${firstConflict + 1}번째 칸의 기존 글자와 다릅니다.`,
-      conflictTyped: firstConflict,
-      word: prefix + typed + suffix, startX: sx, startY: sy,
-    };
-  }
-  return { err: '두 글자 이상 입력하세요.' };
-}
 
 // ---------- 입력 팝업 ----------
 const popup = document.getElementById('popup');
@@ -410,12 +429,12 @@ wordInput.addEventListener('keydown', e => {
   if (e.key === 'Escape') closePopup();
 });
 
-// 서버 미리 검증 (디바운스)
-let previewTimer = null, previewSeq = 0;
+const getLocalCell = (x, y) => cells.get(K(x, y)) || null;
+
+// 입력 즉시 검증 (사전 포함, 전부 로컬이라 빠름)
 function checkPreview() {
   if (!sel) return;
   const typed = wordInput.value.trim();
-  clearTimeout(previewTimer);
 
   if (!typed) {
     preview = null;
@@ -432,69 +451,75 @@ function checkPreview() {
     return;
   }
 
-  // 즉시: 로컬 구조 검사로 미리보기 표시
-  const r = resolveLocal(typed, sel.x, sel.y, sel.dir);
-  preview = r.word ? { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: r.conflictTyped ?? -1 } : null;
+  const r = resolvePlace(typed, sel.x, sel.y, sel.dir, getLocalCell, cells.size === 0);
+  if (r.ok) {
+    preview = { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: -1 };
+    setMsg(r.canonical !== r.word
+      ? `✓ '${r.word}' — 두음법칙 인정! (${r.canonical})`
+      : `✓ '${r.word}' — 사전에 있어요!`, true);
+    submitBtn.disabled = false;
+  } else {
+    preview = r.word ? { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: r.conflictTyped ?? -1 } : null;
+    setMsg(r.err);
+    submitBtn.disabled = true;
+  }
   draw();
-
-  if (r.err) { setMsg(r.err); submitBtn.disabled = true; return; }
-  if (r.incomplete) { setMsg('두 글자 이상이어야 해요.'); submitBtn.disabled = true; return; }
-
-  // 서버에서 사전 포함 최종 판독 확인
-  setMsg(`'${r.word}' 확인 중…`);
-  submitBtn.disabled = true;
-  const seq = ++previewSeq;
-  const q = `/api/preview?word=${encodeURIComponent(typed)}&x=${sel.x}&y=${sel.y}&dir=${sel.dir}`;
-  previewTimer = setTimeout(async () => {
-    try {
-      const j = await (await fetch(q)).json();
-      if (seq !== previewSeq || !sel) return;
-      if (j.ok) {
-        preview = { startX: j.startX, startY: j.startY, word: j.word, conflictTyped: -1 };
-        setMsg(j.canonical !== j.word
-          ? `✓ '${j.word}' — 두음법칙 인정! (${j.canonical})`
-          : `✓ '${j.word}' — 사전에 있어요!`, true);
-        submitBtn.disabled = false;
-      } else {
-        setMsg(j.err);
-        submitBtn.disabled = true;
-      }
-      draw();
-    } catch {}
-  }, 200);
 }
 
-// 엔터 한 번에 제출: 검증 대기 중이어도 즉시 서버로 보내고 서버가 최종 판정
+// 배치: RTDB 트랜잭션 (DB의 최신 상태 기준으로 재검증 → 원자적 반영)
 async function submit() {
   if (!sel || placing) return;
   const typed = wordInput.value.trim();
   if (!typed || !/^[가-힣]+$/.test(typed)) return;
-  clearTimeout(previewTimer);
+  if (!DICT) { setMsg('사전을 아직 불러오는 중이에요…'); return; }
   placing = true;
   setMsg('놓는 중…');
+
+  const { x, y, dir } = sel;
+  let lastErr = null, placedInfo = null;
+
   try {
-    const r = await fetch('/api/place', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ word: typed, x: sel.x, y: sel.y, dir: sel.dir, client: clientId }),
+    const result = await boardRef.transaction(b => {
+      const board = b || { cells: {}, words: [], version: 0 };
+      board.cells = board.cells || {};
+      board.words = board.words || [];
+      const getCell = (cx, cy) => {
+        const c = board.cells[K(cx, cy)];
+        if (!c) return null;
+        return { ch: c.ch, dirs: [c.h && 'h', c.v && 'v'].filter(Boolean) };
+      };
+      const empty = Object.keys(board.cells).length === 0;
+      const r = resolvePlace(typed, x, y, dir, getCell, empty);
+      if (!r.ok) { lastErr = r.err; return; } // abort
+
+      const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
+      for (let i = 0; i < r.word.length; i++) {
+        const k = K(r.startX + dx * i, r.startY + dy * i);
+        const cell = board.cells[k] || { ch: r.word[i] };
+        cell[dir] = true;
+        board.cells[k] = cell;
+      }
+      board.words.push({
+        word: r.word,
+        canonical: r.canonical !== r.word ? r.canonical : null,
+        x: r.startX, y: r.startY, dir, by: clientId, ts: Date.now(),
+      });
+      board.version = (board.version || 0) + 1;
+      placedInfo = { word: r.word, canonical: r.canonical !== r.word ? r.canonical : null };
+      return board;
     });
-    const j = await r.json();
+
     placing = false;
-    if (j.ok) {
-      applyCells(j.cells, true);
-      version = j.version;
-      wordCount = j.wordCount;
-      updateStats();
-      const note = j.canonical ? ` (두음법칙: ${j.canonical})` : '';
+    if (result.committed && placedInfo) {
+      const note = placedInfo.canonical ? ` (두음법칙: ${placedInfo.canonical})` : '';
       closePopup();
-      showToast(`'${j.word}' 완성!${note}`);
-      draw();
+      showToast(`'${placedInfo.word}' 완성!${note}`);
     } else if (sel) {
-      setMsg(j.err);
+      setMsg(lastErr || '다른 유저와 겹쳤어요. 다시 시도해 주세요.');
     }
-  } catch {
+  } catch (e) {
     placing = false;
-    if (sel) setMsg('서버 연결에 실패했어요. 다시 시도해 주세요.');
+    if (sel) setMsg('연결에 실패했어요. 다시 시도해 주세요.');
   }
 }
 submitBtn.onclick = submit;
@@ -509,56 +534,72 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toast.style.display = 'none', 2500);
 }
 
-// ---------- 서버 동기화 (폴링) ----------
+// ---------- Firebase 실시간 동기화 ----------
 const statusEl = document.getElementById('status');
 const statsEl = document.getElementById('stats');
-let firstSync = true;
 
 function updateStats() {
   statsEl.textContent = `단어 ${wordCount}개 · 접속 ${userCount}명`;
 }
 
-function setOnline(on) {
-  if (on) { statusEl.textContent = '● 실시간 연결됨'; statusEl.classList.add('on'); }
-  else { statusEl.textContent = '연결 끊김, 재시도 중…'; statusEl.classList.remove('on'); }
-}
+firebase.initializeApp(window.FIREBASE_CONFIG);
+const db = firebase.database();
+const boardRef = db.ref('board');
 
-// 서버 셀 목록 반영. highlight=true면 새 셀에 하이라이트
-function applyCells(list, highlight) {
+// 연결 상태
+db.ref('.info/connected').on('value', snap => {
+  if (snap.val()) {
+    statusEl.textContent = '● 실시간 연결됨';
+    statusEl.classList.add('on');
+    // 접속자 표시 (연결이 끊기면 자동 제거)
+    const myRef = db.ref('presence/' + clientId);
+    myRef.set(true);
+    myRef.onDisconnect().remove();
+  } else {
+    statusEl.textContent = '연결 끊김, 재시도 중…';
+    statusEl.classList.remove('on');
+  }
+});
+
+db.ref('presence').on('value', snap => {
+  userCount = Math.max(1, snap.numChildren());
+  updateStats();
+});
+
+// 보드 실시간 반영
+let firstSync = true;
+boardRef.on('value', snap => {
+  const board = snap.val() || { cells: {}, words: [] };
+  const bc = board.cells || {};
   const now = Date.now();
-  for (const c of list) {
-    const k = K(c.x, c.y);
+  const remote = new Set(Object.keys(bc));
+  for (const k of [...cells.keys()]) if (!remote.has(k)) cells.delete(k);
+  for (const [k, c] of Object.entries(bc)) {
     const prev = cells.get(k);
-    const isNew = c.isNew !== undefined ? c.isNew : !prev;
-    cells.set(k, { ch: c.ch, dirs: c.dirs, fresh: (highlight && isNew) ? now : (prev?.fresh || 0) });
+    const dirs = [c.h && 'h', c.v && 'v'].filter(Boolean);
+    cells.set(k, {
+      ch: c.ch, dirs,
+      fresh: prev ? (dirs.length !== prev.dirs.length ? prev.fresh : prev.fresh) : (firstSync ? 0 : now),
+    });
   }
-}
+  const words = board.words ? (Array.isArray(board.words) ? board.words : Object.values(board.words)) : [];
+  wordCount = words.length;
+  firstSync = false;
+  updateStats();
+  draw();
+});
 
-async function poll() {
-  try {
-    const j = await (await fetch(`/api/state?since=${version}&client=${encodeURIComponent(clientId)}`)).json();
-    setOnline(true);
-    userCount = j.users;
-    wordCount = j.wordCount;
-    if (j.cells) {
-      // 전체 스냅샷: 새로 생긴 셀만 하이라이트 (첫 로드는 제외)
-      const known = new Set(cells.keys());
-      applyCells(j.cells, !firstSync);
-      // 서버에서 사라진 셀 제거 (일반적으로 없음)
-      const remote = new Set(j.cells.map(c => K(c.x, c.y)));
-      for (const k of known) if (!remote.has(k)) cells.delete(k);
-      draw();
-    }
-    version = j.version;
-    firstSync = false;
-    updateStats();
-  } catch {
-    setOnline(false);
-  }
-  setTimeout(poll, 2000);
-}
+// ---------- 사전 로드 ----------
+statusEl.textContent = '사전 불러오는 중…';
+fetch('words.txt')
+  .then(r => r.text())
+  .then(t => {
+    DICT = new Set(t.split('\n').filter(Boolean));
+    console.log(`사전 로드 완료: ${DICT.size.toLocaleString()}개 명사`);
+    if (sel) checkPreview();
+  })
+  .catch(() => { statusEl.textContent = '사전 로드 실패 — 새로고침 해주세요'; });
 
-poll();
 resize();
 </script>
 </body>

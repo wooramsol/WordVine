@@ -1,35 +1,40 @@
 # WordVine — 무한 십자낱말
 
 모두가 함께 하나의 보드를 끝없이 채워가는 십자낱말 + 끝말잇기 웹게임.
-서버가 존재하는 한 보드는 지워지지 않고 계속 자란다.
+보드는 Firebase Realtime Database에 영구 저장되어 지워지지 않고 계속 자란다.
+
+## 구조 (Firebase)
+
+- **Hosting**: `public/` (게임 페이지 + 사전 `words.txt`)
+- **Realtime Database**: 보드 상태(`/board`), 접속자(`/presence`)
+  - 실시간 리스너로 다른 유저의 단어가 즉시 반영됨
+  - 배치는 RTDB 트랜잭션으로 처리해 동시 입력 경합에도 안전
+- 서버 코드 없음 — 검증(사전·두음법칙·방향 규칙)은 클라이언트 + 트랜잭션 재검증
+
+## 배포 (GitHub Actions 자동)
+
+`main`에 푸시하면 `.github/workflows/deploy.yml`이 자동으로 Firebase에 배포한다.
+
+필요한 설정 (1회):
+1. Firebase 콘솔에서 **Realtime Database 생성** (Build → Realtime Database → 데이터베이스 만들기)
+2. GitHub 레포 **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `FIREBASE_SERVICE_ACCOUNT`
+   - Value: Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → 새 비공개 키(JSON) 내용
+
+배포 시 `scripts/gen-firebase-config.js`가 웹앱 등록과 `public/firebase-config.js` 생성을 자동 처리한다.
 
 ## 로컬 실행
 
+배포된 DB를 그대로 쓰면서 페이지만 로컬로 띄우기:
+
 ```bash
-npm install
-npm start        # http://localhost:3000, 상태는 data.json에 저장
+# public/firebase-config.js가 필요 (배포 후 호스팅에서 받아오거나 CI 아티팩트 사용)
+npx serve public   # 또는 python3 -m http.server -d public 8000
 ```
-
-## Vercel 배포
-
-서버리스 구조로 동작한다.
-
-- `api/state.js` — 보드 상태 폴링 (2초 간격, 버전 기반 차분)
-- `api/place.js` — 단어 배치 (검증 + 저장)
-- `api/preview.js` — 입력 중 실시간 검증 (드라이런)
-- `public/index.html` — 캔버스 클라이언트
-
-**영속성**: Vercel 대시보드에서 Blob 스토어를 만들어 프로젝트에 연결하면
-(`BLOB_READ_WRITE_TOKEN` 환경변수 자동 주입) 보드가 Blob에 저장돼 영구 보존된다.
-연결 전에는 인스턴스 메모리에만 유지되어 콜드스타트 때 초기화될 수 있다.
-
-**사전**: `words.txt`(명사 203,021개)는 배포 패키지에 없으면
-콜드스타트 때 이 레포의 raw URL에서 내려받아 `/tmp`에 캐시한다.
-(`WORDS_URL` 환경변수로 교체 가능)
 
 ## 게임 규칙
 
-- **사전 검증**: 명사 203,021개(`words.txt`)에 있는 단어만 가능
+- **사전 검증**: 명사 203,021개(`public/words.txt`)에 있는 단어만 가능
   (표준국어대사전 + hunspell-dict-ko 병합, 옛말·북한어·방언 제외)
 - **두음법칙**: 기존 글자에서 시작할 때 첫 글자의 두음 변환형 인정 (ㄹ→ㄴ/ㅇ, ㄴ→ㅇ)
   - 원형 입력: '력' 칸에서 '력사' 입력 → '역사'로 인정
@@ -39,20 +44,17 @@ npm start        # http://localhost:3000, 상태는 data.json에 저장
 - **병합/분리 판독**: 같은 줄에 붙은 기존 글자는 합쳐 읽을 수도, 분리해 읽을 수도 있음.
   [앞글자+입력+뒷글자, 앞글자+입력, 입력+뒷글자, 입력] 순(긴 판독부터)으로 검사해
   규칙과 사전을 만족하는 첫 판독을 채택
-  - 병합 예: 가로 '기차표'의 '기' 아래 칸에 '름칠'만 입력 → 세로 '기름칠'
-  - 분리 예: 세로 줄에 '력'이 바로 위에 있어도 그 아래 '입력'을 별도 단어로 배치 가능
-- 교차하는 칸의 글자는 기존 글자와 일치해야 하고, 최소 한 글자는 기존 단어와 이어져야 함 (첫 단어 예외)
+- 교차 글자는 일치해야 하고, 최소 한 글자는 기존 단어와 이어져야 함 (첫 단어 예외)
 - 완성 단어 기준 2~15글자
 
 ## 조작
 
 - 셀 클릭 → 단어 입력 (가로/세로 선택, 일부 글자만 입력해도 자동 판독)
-- 드래그로 이동, 휠로 확대/축소
+- 드래그로 이동, 휠로 확대/축소, Enter 한 번으로 제출
 - 미리보기: 파랑 = 새 글자, 초록 = 함께 읽히는 기존 글자, 빨강 = 충돌
-- Enter 한 번으로 즉시 제출
 
 ## 알려진 한계 (프로토타입)
 
-- 실시간 동기화가 2초 폴링이라 WebSocket보다 반영이 느림
-- 동시 배치 경합 시 마지막 저장이 이김 (트래픽 낮을 땐 문제 없음)
-- 접속자 수는 인스턴스 단위 근사치
+- 검증이 클라이언트에서 수행되므로 악의적 유저가 DB에 직접 쓰는 것까지 막지는 못함
+  (강화하려면 Cloud Functions 검증 + 규칙 잠금으로 이전)
+- 보드가 커지면 트랜잭션이 전체 보드를 전송하므로 규모 확장 시 셀 단위 구조로 개편 필요
