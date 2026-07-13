@@ -34,6 +34,23 @@
     padding: 6px 10px; border-radius: 20px; background: #e5e0d3; color: #777; }
   #status.on { background: #dcefdb; color: #2c6e2f; }
 
+  #leaderboard {
+    position: fixed; top: 46px; right: 12px; z-index: 10;
+    background: rgba(255,255,255,.95); border: 1px solid #d8d2c4;
+    border-radius: 12px; padding: 10px 14px; box-shadow: 0 2px 10px rgba(0,0,0,.1);
+    font-size: 12px; color: #444; min-width: 150px; max-width: 220px;
+  }
+  #leaderboard.hidden { display: none; }
+  #leaderboard b { display: block; font-size: 13px; color: #1a1a1a; margin-bottom: 6px; }
+  #leaderboard ol { list-style: none; counter-reset: lb; }
+  #leaderboard li { counter-increment: lb; display: flex; align-items: center; gap: 6px;
+    padding: 2px 0; }
+  #leaderboard li::before { content: counter(lb); width: 14px; color: #9a927d; font-size: 11px; }
+  #leaderboard .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  #leaderboard .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #leaderboard li.me .name { font-weight: 700; color: #3b6ea5; }
+  #leaderboard .cnt { color: #6b5e3f; font-variant-numeric: tabular-nums; }
+
   #popup {
     position: fixed; z-index: 20; display: none;
     background: #fff; border: 1px solid #cfc7b5; border-radius: 12px;
@@ -84,6 +101,7 @@
     #popup .actions button { padding: 12px 0; font-size: 15px; }
     #wordInput { padding: 10px 12px; }
     #toast { bottom: auto; top: 60px; }
+    #leaderboard { font-size: 11px; padding: 8px 10px; min-width: 120px; max-width: 160px; }
   }
 </style>
 </head>
@@ -100,6 +118,10 @@
   <div id="credit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
 </div>
 <div id="status">연결 중…</div>
+<div id="leaderboard" class="hidden">
+  <b>땅따먹기 순위</b>
+  <ol id="lbList"></ol>
+</div>
 
 <div id="popup">
   <div class="dirs">
@@ -168,20 +190,24 @@ function dictLookup(word, firstExisting) {
 }
 
 // ---------- 배치 판독 (병합/분리 + 두음법칙 + 사전) ----------
-// getCell(x,y) -> { ch, dirs:[] } | null 을 받아 어떤 상태에서든 검증 가능
-// (미리보기: 로컬 Map, 트랜잭션: DB 스냅샷)
+// getCell(x,y) -> { ch, dirs:[], captured, owner } | null 을 받아 어떤 상태에서든 검증 가능
+// (미리보기: 로컬 Map, 트랜잭션: DB 스냅샷). captured 칸은 글자가 없는 "포획된 영역" — 벽 취급, 절대 사용 불가
 function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
   const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
 
   let prefix = '', sx = x, sy = y;
   while (true) {
     const ex = getCell(sx - dx, sy - dy);
-    if (!ex) break;
+    if (!ex || ex.captured) break;
     prefix = ex.ch + prefix;
     sx -= dx; sy -= dy;
   }
-  let suffix = '', ei = typed.length, ex2;
-  while ((ex2 = getCell(x + dx * ei, y + dy * ei))) { suffix += ex2.ch; ei++; }
+  let suffix = '', ei = typed.length;
+  while (true) {
+    const ex2 = getCell(x + dx * ei, y + dy * ei);
+    if (!ex2 || ex2.captured) break;
+    suffix += ex2.ch; ei++;
+  }
 
   const tCells = [];
   let overlap = 0, newCount = 0;
@@ -189,6 +215,9 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
     const ex = getCell(x + dx * i, y + dy * i);
     tCells.push(ex);
     if (ex) overlap++; else newCount++;
+  }
+  if (tCells.some(c => c && c.captured)) {
+    return { err: '포획된 영역이라 사용할 수 없습니다.' };
   }
   if (newCount === 0) return { err: '이미 모두 채워진 자리입니다.' };
   if (!boardEmpty && overlap === 0 && !prefix && !suffix) {
@@ -253,6 +282,43 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
   return { err: '두 글자 이상 입력하세요.' };
 }
 
+// ---------- 땅따먹기: 완전히 둘러싸인 빈 칸 포획(flood-fill) ----------
+// getCell(x,y): 벽(글자 또는 이미 포획된 칸)이면 truthy, 진짜 빈 칸이면 null
+// newlyPlacedCoords: 이번에 새로 놓인 글자 칸 좌표들 — 이 칸들의 인접 빈 칸에서만 탐색 시작
+// (보드가 무한이므로, 열려서 무한히 뻗어나가는 영역은 CAP을 넘기면 "포획 아님"으로 간주)
+function findCapturedRegions(getCell, K, newlyPlacedCoords) {
+  const CAP = 400;
+  const globalVisited = new Set();
+  const captured = [];
+  const NEI = (cx, cy) => [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
+
+  for (const [sx0, sy0] of newlyPlacedCoords) {
+    for (const [nx, ny] of NEI(sx0, sy0)) {
+      const seedKey = K(nx, ny);
+      if (globalVisited.has(seedKey) || getCell(nx, ny)) continue;
+
+      const localVisited = new Set([seedKey]);
+      const queue = [[nx, ny]];
+      const region = [[nx, ny]];
+      let leaked = false;
+      while (queue.length && !leaked) {
+        const [cx, cy] = queue.shift();
+        for (const [ax, ay] of NEI(cx, cy)) {
+          const ak = K(ax, ay);
+          if (localVisited.has(ak) || getCell(ax, ay)) continue;
+          localVisited.add(ak);
+          if (localVisited.size > CAP) { leaked = true; break; }
+          region.push([ax, ay]);
+          queue.push([ax, ay]);
+        }
+      }
+      for (const k of localVisited) globalVisited.add(k);
+      if (!leaked) captured.push(...region);
+    }
+  }
+  return captured;
+}
+
 // ---------- 캔버스 ----------
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
@@ -287,6 +353,14 @@ function cellBox(sx, sy, fill, stroke, lw) {
   ctx.strokeStyle = stroke; ctx.lineWidth = lw;
   roundRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3, 5);
   ctx.stroke();
+}
+
+// 유저 ID -> 고유 색상(hue) 해시 — 포획 영역/리더보드 색상 표시에 사용
+function ownerHue(owner) {
+  let h = 0;
+  const s = owner || '';
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h % 360;
 }
 
 // 가로/세로 1회 제한 규칙 삭제: 어떤 칸이든 항상 이어서 쓸 수 있음
@@ -329,10 +403,19 @@ function draw() {
     if (x < x0 - 1 || x > x1 || y < y0 - 1 || y > y1) continue;
     const [sx, sy] = worldToScreen(x, y);
     const age = now - (c.fresh || 0);
+    const flashing = age < 2000;
+    const flashFill = `rgba(255, 224, 130, ${Math.max(0.15, 0.9 - age / 2500)})`;
+
+    if (c.captured) {
+      // 땅따먹기로 포획된 영역: 글자 없이 소유자 색으로만 표시
+      const hue = ownerHue(c.owner);
+      const fill = flashing ? flashFill : `hsla(${hue}, 55%, 55%, .32)`;
+      cellBox(sx, sy, fill, `hsl(${hue}, 45%, 45%)`, 1.5);
+      continue;
+    }
+
     const blocked = isBlocked(x, y);
-    const fill = age < 2000
-      ? `rgba(255, 224, 130, ${Math.max(0.15, 0.9 - age / 2500)})`
-      : (blocked ? '#eae5d8' : '#fffdf7');
+    const fill = flashing ? flashFill : (blocked ? '#eae5d8' : '#fffdf7');
     cellBox(sx, sy, fill, blocked ? '#c9c1af' : '#b8ae98', 1.5);
     ctx.fillStyle = blocked ? '#97907f' : '#222';
     ctx.fillText(c.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
@@ -536,7 +619,8 @@ function openPopup(cx, cy, px, py) {
   sel = { x: cx, y: cy, dir };
   preview = null;
   wordInput.value = '';
-  setMsg('');
+  const capturedHere = cells.get(K(cx, cy))?.captured;
+  setMsg(capturedHere ? '이 칸은 포획된 영역이라 사용할 수 없어요. 화살표로 다른 칸으로 이동해 보세요.' : '');
   submitBtn.disabled = true;
   updateDirBtns();
   popup.style.display = 'block';
@@ -661,7 +745,8 @@ async function submit() {
       const getCell = (cx, cy) => {
         const c = board.cells[K(cx, cy)];
         if (!c) return null;
-        return { ch: c.ch, dirs: [c.h && 'h', c.v && 'v'].filter(Boolean) };
+        if (c.captured) return { ch: null, dirs: [], captured: true, owner: c.owner };
+        return { ch: c.ch, dirs: [c.h && 'h', c.v && 'v'].filter(Boolean), captured: false };
       };
       const empty = Object.keys(board.cells).length === 0;
       const wordsList = Array.isArray(board.words) ? board.words : Object.values(board.words);
@@ -670,26 +755,41 @@ async function submit() {
       if (!r.ok) { lastErr = r.err; return; } // abort
 
       const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
+      const placedCoords = [];
       for (let i = 0; i < r.word.length; i++) {
-        const k = K(r.startX + dx * i, r.startY + dy * i);
+        const cx = r.startX + dx * i, cy = r.startY + dy * i;
+        const k = K(cx, cy);
         const cell = board.cells[k] || { ch: r.word[i] };
         cell[dir] = true;
         board.cells[k] = cell;
+        placedCoords.push([cx, cy]);
       }
       board.words.push({
         word: r.word,
         canonical: r.canonical !== r.word ? r.canonical : null,
         x: r.startX, y: r.startY, dir, by: clientId, ts: Date.now(),
       });
+
+      // 땅따먹기: 방금 놓은 글자로 완전히 둘러싸인 빈 칸이 생겼는지 검사해 포획 처리
+      const capturedCells = findCapturedRegions(getCell, K, placedCoords);
+      for (const [cx, cy] of capturedCells) {
+        board.cells[K(cx, cy)] = { captured: true, owner: clientId, ts: Date.now() };
+      }
+
       board.version = (board.version || 0) + 1;
-      placedInfo = { word: r.word, canonical: r.canonical !== r.word ? r.canonical : null };
+      placedInfo = {
+        word: r.word,
+        canonical: r.canonical !== r.word ? r.canonical : null,
+        capturedCount: capturedCells.length,
+      };
       return board;
     });
 
     placing = false;
     if (result.committed && placedInfo) {
       const note = placedInfo.canonical ? ` (두음법칙: ${placedInfo.canonical})` : '';
-      showToast(`'${placedInfo.word}' 완성!${note}`);
+      const capNote = placedInfo.capturedCount > 0 ? ` — 영역 ${placedInfo.capturedCount}칸 포획!` : '';
+      showToast(`'${placedInfo.word}' 완성!${note}${capNote}`);
       // 선택 칸 유지: 같은 칸에서 이어 입력하거나 방향키로 다른 칸으로 이동 가능
       if (sel) {
         const [sx, sy] = worldToScreen(x, y);
@@ -729,6 +829,37 @@ function updateStats() {
   statsEl.textContent = `낱말수 ${wordCount}개, 접속자 ${userCount}명`;
 }
 
+// ---------- 땅따먹기 리더보드 ----------
+const leaderboardEl = document.getElementById('leaderboard');
+const lbListEl = document.getElementById('lbList');
+function updateLeaderboard() {
+  const tally = new Map();
+  for (const c of cells.values()) {
+    if (c.captured && c.owner) tally.set(c.owner, (tally.get(c.owner) || 0) + 1);
+  }
+  if (tally.size === 0) { leaderboardEl.classList.add('hidden'); return; }
+  const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  lbListEl.textContent = '';
+  // owner(clientId)는 유저가 localStorage를 조작하면 임의 문자열일 수 있으므로
+  // innerHTML이 아닌 textContent/DOM API로만 채워 넣어 삽입 공격을 원천 차단
+  for (const [owner, count] of ranked) {
+    const li = document.createElement('li');
+    if (owner === clientId) li.className = 'me';
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = `hsl(${ownerHue(owner)}, 55%, 55%)`;
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = owner;
+    const cnt = document.createElement('span');
+    cnt.className = 'cnt';
+    cnt.textContent = String(count);
+    li.append(dot, name, cnt);
+    lbListEl.appendChild(li);
+  }
+  leaderboardEl.classList.remove('hidden');
+}
+
 firebase.initializeApp(window.FIREBASE_CONFIG);
 const db = firebase.database();
 const boardRef = db.ref('board');
@@ -763,11 +894,13 @@ boardRef.on('value', snap => {
   for (const k of [...cells.keys()]) if (!remote.has(k)) cells.delete(k);
   for (const [k, c] of Object.entries(bc)) {
     const prev = cells.get(k);
-    const dirs = [c.h && 'h', c.v && 'v'].filter(Boolean);
-    cells.set(k, {
-      ch: c.ch, dirs,
-      fresh: prev ? (dirs.length !== prev.dirs.length ? prev.fresh : prev.fresh) : (firstSync ? 0 : now),
-    });
+    const fresh = prev ? prev.fresh : (firstSync ? 0 : now);
+    if (c.captured) {
+      cells.set(k, { ch: null, dirs: [], captured: true, owner: c.owner, fresh });
+    } else {
+      const dirs = [c.h && 'h', c.v && 'v'].filter(Boolean);
+      cells.set(k, { ch: c.ch, dirs, captured: false, fresh });
+    }
   }
   const words = board.words ? (Array.isArray(board.words) ? board.words : Object.values(board.words)) : [];
   wordCount = words.length;
@@ -775,6 +908,7 @@ boardRef.on('value', snap => {
   const wasFirst = firstSync;
   firstSync = false;
   updateStats();
+  updateLeaderboard();
   if (wasFirst) fitBoard(); // 첫 로드: 단어뭉치를 화면 가운데 적절한 크기로
   else draw();
 });
