@@ -74,10 +74,11 @@
   }
   #modeBadge {
     position: fixed; z-index: 21; display: none;
-    padding: 3px 9px; border-radius: 10px; font-size: 12px; font-weight: 700;
+    padding: 5px 12px; border-radius: 10px; font-size: 12px; font-weight: 700;
     background: #eee7d8; color: #6b5e3f; border: 1.5px solid #cfc7b5;
-    pointer-events: none; white-space: nowrap; transform: translate(-50%, -130%);
+    white-space: nowrap; transform: translate(-50%, -130%);
     box-shadow: 0 2px 6px rgba(0,0,0,.15);
+    cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   }
   #modeBadge.show { display: block; }
   #modeBadge.ok { background: #dcefdb; color: #2c6e2f; border-color: #8fcf93; }
@@ -163,6 +164,8 @@ let preview = null;                 // { startX, startY, word, conflictTyped }
 let placing = false;
 let placedWordsIndex = new Map();   // canonical 단어 -> { x, y, dir, word } — 중복 단어 위치 하이라이트용
 let dupHighlight = null;            // 지금 입력이 중복 단어일 때, 이미 보드에 있는 그 단어들의 위치
+let fadeCells = [];                 // 지금 선택/입력 지점과 맞닿아 있는 기존 글자 칸들 — 사전 검증 성공 여부와
+                                     // 무관하게 "여기서 이어질 수도 있다"는 힌트로 항상 흐리게 표시
 
 // ---------- 두음법칙 ----------
 const Y_VOWELS = new Set([2, 6, 7, 12, 17, 20]); // ㅑ ㅕ ㅖ ㅛ ㅠ ㅣ
@@ -471,34 +474,37 @@ function draw() {
     }
   }
 
+  // 지금 선택/입력 지점과 맞닿은 기존 글자 칸은, 사전 검증이 아직 안 끝났어도(혹은 이 조합으로
+  // 끝내 단어가 안 만들어지더라도) "이어질 수 있는 자리"라는 힌트로 항상 흐리게 표시
+  if (sel && fadeCells.length) {
+    for (const [cx, cy] of fadeCells) {
+      const c = cells.get(K(cx, cy));
+      if (!c || c.captured) continue;
+      const [sx, sy] = worldToScreen(cx, cy);
+      ctx.fillStyle = '#fffdf7';
+      roundRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3, 5);
+      ctx.fill();
+      cellBox(sx, sy, 'rgba(90,180,110,.18)', '#3e8e52', 2);
+      if (c.ch) {
+        ctx.fillStyle = 'rgba(34, 34, 34, 0.2)';
+        ctx.fillText(c.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
+      }
+    }
+  }
+
   if (sel && preview) {
     const dx = sel.dir === 'h' ? 1 : 0, dy = sel.dir === 'v' ? 1 : 0;
-    // typedFrom~typedFrom+typedLen 구간은 "지금 실제로 타이핑 중인 자리" — 그 칸에 이미
-    // 글자가 있었더라도(예: 기존 글자가 있는 칸부터 바로 새로 입력 시작) 항상 선명하게 덧그림.
-    // 그 바깥(접두/접미로 자동 이어붙은 확정된 기존 글자)만 반투명 처리 대상.
+    // typedFrom~typedFrom+typedLen 구간만 그림 — 그 바깥(접두/접미로 이어붙은 기존 글자)은
+    // 위 fadeCells 렌더링에서 이미 흐리게 처리했으므로 여기서는 건드리지 않음(중복 방지)
     const typedFrom = preview.typedFrom || 0;
     const typedTo = typedFrom + (preview.typedLen != null ? preview.typedLen : preview.word.length);
     for (let i = 0; i < preview.word.length; i++) {
+      if (i < typedFrom || i >= typedTo) continue;
       const cx = preview.startX + dx * i, cy = preview.startY + dy * i;
       const [sx, sy] = worldToScreen(cx, cy);
-      const existing = cells.get(K(cx, cy));
-      const activelyTyped = i >= typedFrom && i < typedTo;
-      if (existing && !activelyTyped) {
-        // 원래 칸 배경으로 한 번 리셋해서 아래 깔린 진한(불투명) 검정 글자를 지운 다음,
-        // 정확히 20% 불투명도로 다시 그려서 지금 새로 입력 중인 글자와 뚜렷이 구분되게 함
-        ctx.fillStyle = '#fffdf7';
-        roundRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3, 5);
-        ctx.fill();
-        cellBox(sx, sy, 'rgba(90,180,110,.18)', '#3e8e52', 2);
-        if (existing.ch) {
-          ctx.fillStyle = 'rgba(34, 34, 34, 0.2)';
-          ctx.fillText(existing.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
-        }
-      } else {
-        cellBox(sx, sy, `hsla(${myHueVal}, 70%, 55%, .25)`, `hsl(${myHueVal}, 65%, 45%)`, 2);
-        const ch = preview.word[i];
-        if (ch) { ctx.fillStyle = `hsl(${myHueVal}, 65%, 40%)`; ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1); }
-      }
+      cellBox(sx, sy, `hsla(${myHueVal}, 70%, 55%, .25)`, `hsl(${myHueVal}, 65%, 45%)`, 2);
+      const ch = preview.word[i];
+      if (ch) { ctx.fillStyle = `hsl(${myHueVal}, 65%, 40%)`; ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1); }
     }
     if (preview.conflictTyped >= 0) {
       const cx = sel.x + dx * preview.conflictTyped, cy = sel.y + dy * preview.conflictTyped;
@@ -601,7 +607,13 @@ function ensureVisible() {
 }
 
 if (window.visualViewport) {
-  visualViewport.addEventListener('resize', () => { if (sel) ensureVisible(); });
+  visualViewport.addEventListener('resize', () => {
+    // 모바일 키보드가 뜨고 닫힐 때 iOS 등 일부 브라우저는 window resize 이벤트를 안 쏴서
+    // 캔버스가 다시 초기화(clear)되지 않고, 그 상태에서 줌/이동을 하면 화면에 이전 프레임의
+    // 잔상이 남는 경우가 있음. visualViewport가 바뀔 때마다 캔버스를 완전히 리셋해서 방지.
+    resize();
+    if (sel) ensureVisible();
+  });
 }
 
 // ---------- 팬 / 줌 ----------
@@ -747,7 +759,7 @@ function openPopup(cx, cy, px, py) {
   broadcastTyping();
 }
 function closePopup() {
-  sel = null; preview = null; placing = false; dupHighlight = null;
+  sel = null; preview = null; placing = false; dupHighlight = null; fadeCells = [];
   modeBadge.classList.remove('show');
   broadcastTyping();
   draw();
@@ -790,6 +802,8 @@ wordInput.addEventListener('input', () => {
 });
 wordInput.addEventListener('compositionupdate', () => { checkPreview(); requestAnimationFrame(draw); });
 wordInput.addEventListener('compositionend', () => { checkPreview(); requestAnimationFrame(draw); });
+// 모바일 키보드가 닫히는 시점(포커스 아웃)에도 캔버스를 한 번 완전히 리셋해서 잔상 방지
+wordInput.addEventListener('blur', () => requestAnimationFrame(resize));
 wordInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { submit(); return; }
   if (e.key === 'Escape') { closePopup(); return; }
@@ -821,6 +835,12 @@ function toggleDir() {
   broadcastTyping();
 }
 
+// 모바일은 물리 키보드가 없어 Tab을 누를 수 없으므로, 배지를 탭해서도 가로/세로를 바꿀 수 있게 함
+modeBadge.addEventListener('click', () => {
+  toggleDir();
+  wordInput.focus(); // 배지를 탭하는 동안 포커스가 빠졌다면 다시 입력 가능하도록 복구
+});
+
 const getLocalCell = (x, y) => cells.get(K(x, y)) || null;
 
 // 입력 즉시 검증 (사전 포함, 전부 로컬이라 빠름)
@@ -829,6 +849,28 @@ function checkPreview() {
   const typed = wordInput.value.trim();
   const dx = sel.dir === 'h' ? 1 : 0, dy = sel.dir === 'v' ? 1 : 0;
   dupHighlight = null; // 매번 새로 계산 — 중복 단어 상태일 때만 아래에서 다시 채움
+
+  // 지금 타이핑 중인 자리와 맞닿아 있는 기존 글자들을 찾아둠(사전에 맞는 단어로 인정되는지와
+  // 무관하게, 그냥 "이어질 수 있는 자리"라는 시각적 힌트로 항상 흐리게 보여주기 위함).
+  // resolvePlace 내부의 prefix/suffix 탐색과 같은 방식으로 맞닿은 칸을 앞뒤로 따라간다.
+  fadeCells = [];
+  {
+    let px = sel.x - dx, py = sel.y - dy;
+    while (true) {
+      const c = getLocalCell(px, py);
+      if (!c || c.captured) break;
+      fadeCells.push([px, py]);
+      px -= dx; py -= dy;
+    }
+    const tlen = typed.length || 1;
+    let six = sel.x + dx * tlen, siy = sel.y + dy * tlen;
+    while (true) {
+      const c = getLocalCell(six, siy);
+      if (!c || c.captured) break;
+      fadeCells.push([six, siy]);
+      six += dx; siy += dy;
+    }
+  }
 
   if (!typed) {
     preview = null;
