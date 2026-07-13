@@ -319,8 +319,8 @@ function draw() {
   for (let y = y0; y <= y1; y++) { const [, sy] = worldToScreen(0, y); ctx.moveTo(0, sy); ctx.lineTo(innerWidth, sy); }
   ctx.stroke();
 
-  // 선택 칸의 진행 방향(가로/세로) 전체 줄을 은은하게 하이라이트
-  if (sel) {
+  // 선택 칸의 진행 방향(가로/세로) 전체 줄을 은은하게 하이라이트 (입력 가능한 칸일 때만)
+  if (sel && dirAvailable(sel.x, sel.y, sel.dir)) {
     const [selSx, selSy] = worldToScreen(sel.x, sel.y);
     ctx.fillStyle = 'rgba(59,110,165,.07)';
     if (sel.dir === 'h') ctx.fillRect(0, selSy, innerWidth, cellSize);
