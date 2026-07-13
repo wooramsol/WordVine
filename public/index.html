@@ -547,14 +547,18 @@ function visibleHeight() {
   return Math.max(vh, 120);
 }
 
-// 브라우저마다 visualViewport.height가 키보드를 제대로 반영하지 않는 경우가 있어서(그러면
-// 화면이 키보드 높이만큼 위쪽으로 치우쳐 보임), 아예 API를 믿지 않고 "칸을 선택하면 곧 키보드가
-// 뜬다"고 가정해서 화면 하단 일정 비율을 항상 키보드 영역으로 빼고 계산함. 데스크톱처럼 화면이
-// 넓으면(키보드가 뜰 일이 없으면) 그대로 전체 높이를 씀.
-function usableHeight() {
-  const vh = visibleHeight();
-  if (!sel || innerWidth > 900) return vh;
-  return Math.max(150, vh * 0.2);
+// 브라우저마다 visualViewport.height가 키보드를 제대로 반영하는 정도가 기기/버전마다 달라서
+// (전혀 안 줄어드는 경우도 있음), 키보드 높이를 "추정"하는 방식은 계속 어긋났음. 그래서 아예
+// 추정을 포기하고, 모바일에서 칸을 선택하면 항상 "화면 맨 위에서 일정 비율(27%) 내려온 위치"에
+// 고정으로 두기로 함 — 키보드가 보통 화면의 아래 절반 이상을 차지하므로 이 위치는 거의 모든
+// 기기에서 안전하게 보임. 데스크톱(넓은 화면)은 키보드가 없으니 그대로 화면 정중앙.
+function targetSelScreenY() {
+  return innerWidth > 900 ? visibleHeight() / 2 : innerHeight * 0.27;
+}
+// 위 기준점을 중심으로 "안전하게 보인다고 가정하는 영역"의 아래쪽 경계 — 칸/미리보기가 이
+// 아래로 벗어나면 다시 정렬하거나 칸 크기를 줄이는 기준으로 씀
+function assumedVisibleBottom() {
+  return innerWidth > 900 ? visibleHeight() : targetSelScreenY() * 2;
 }
 
 // 보이는 영역의 "맨 위"가 캔버스 기준으로 어디인지. 일부 모바일 브라우저는 입력창 포커스 시
@@ -600,9 +604,9 @@ function fitBoard() {
 // 뒤늦게 화면이 확 튀는 느낌을 줬음 — 선택하는 순간 바로/예측 가능하게 중앙 정렬해서 방지)
 function centerOnSel() {
   if (!sel) return;
-  const vw = innerWidth, vh = usableHeight(), vt = visibleTop();
+  const vw = innerWidth;
   camX = sel.x + 0.5 - vw / (2 * cellSize);
-  camY = sel.y + 0.5 - (vt + vh / 2) / cellSize;
+  camY = sel.y + 0.5 - targetSelScreenY() / cellSize;
 }
 
 function ensureVisible() {
@@ -615,7 +619,8 @@ function ensureVisible() {
     maxX = Math.max(maxX, preview.startX + dx * (preview.word.length - 1));
     maxY = Math.max(maxY, preview.startY + dy * (preview.word.length - 1));
   }
-  const vw = innerWidth, vh = usableHeight();
+  const vw = innerWidth, vh = assumedVisibleBottom();
+  const targetY = targetSelScreenY();
 
   // 스팬이 화면보다 크면 축소
   const spanW = (maxX - minX + 2) * cellSize;
@@ -624,14 +629,14 @@ function ensureVisible() {
     cellSize = Math.max(18, Math.min(vw / (maxX - minX + 2), vh / (maxY - minY + 2)));
   }
 
-  // 전부 보이면 그대로, 벗어나면 스팬 중심을 가시 영역 중심으로
+  // 전부 보이면 그대로, 벗어나면 스팬 중심을 기준점(targetY)으로
   const [sx0, sy0] = worldToScreen(minX, minY);
   const [sx1, sy1] = worldToScreen(maxX + 1, maxY + 1);
   const m = 12;
   if (sx0 >= m && sy0 >= m && sx1 <= vw - m && sy1 <= vh - m) { draw(); return; }
   const cx = (minX + maxX + 1) / 2, cy = (minY + maxY + 1) / 2;
   camX = cx - vw / (2 * cellSize);
-  camY = cy - vh / (2 * cellSize);
+  camY = cy - targetY / cellSize;
   draw();
 }
 
