@@ -53,10 +53,13 @@
 
   /* 칸에 직접 입력: 보이는 입력창/버튼 없음. wordInput은 IME(한글 조합) 지원을 위해
      실제로 존재하지만 화면엔 보이지 않고, 타이핑한 글자는 캔버스 칸에 바로 그려짐. */
+  /* opacity:0 대신 element 자체는 opacity:1(=완전히 "보이는" 요소)로 두고
+     글자색/배경/캐럿만 투명하게 해서, 일부 브라우저가 "투명 요소엔 IME(한글 조합)를
+     안 띄우는" 문제를 피한다. 실제로는 화면에 아무것도 안 보임. */
   #wordInput {
-    position: fixed; z-index: 20; opacity: 0; border: none; padding: 0; margin: 0;
-    font-size: 16px; background: transparent; caret-color: transparent;
-    pointer-events: none;
+    position: fixed; z-index: 20; opacity: 1; border: none; padding: 0; margin: 0;
+    font-size: 16px; color: transparent; background: transparent; caret-color: transparent;
+    pointer-events: none; min-width: 24px; min-height: 24px;
   }
   #modeBadge {
     position: fixed; z-index: 21; display: none;
