@@ -125,6 +125,7 @@
 // ---------- 상태 ----------
 const cells = new Map();            // "x,y" -> { ch, dirs:[], fresh }
 const K = (x, y) => x + ',' + y;
+let usedWords = new Set();          // 이미 보드에 쓰인 단어(canonical 기준) — 중복 사용 방지
 let wordCount = 0, userCount = 1;
 let DICT = null;                    // 사전 (Hosting에서 로드)
 const clientId = (() => {
@@ -169,7 +170,7 @@ function dictLookup(word, firstExisting) {
 // ---------- 배치 판독 (병합/분리 + 두음법칙 + 사전) ----------
 // getCell(x,y) -> { ch, dirs:[] } | null 을 받아 어떤 상태에서든 검증 가능
 // (미리보기: 로컬 Map, 트랜잭션: DB 스냅샷)
-function resolvePlace(typed, x, y, dir, getCell, boardEmpty) {
+function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
   const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
 
   let prefix = '', sx = x, sy = y;
@@ -232,6 +233,7 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty) {
     const firstExisting = !!getCell(startX, startY);
     const canonical = dictLookup(word, firstExisting);
     if (!canonical) { fails.push({ kind: 'dict', word }); continue; }
+    if (usedWords && usedWords.has(canonical)) { fails.push({ kind: 'dup', word: canonical }); continue; }
 
     return { ok: true, word, canonical, startX, startY };
   }
@@ -239,6 +241,10 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty) {
   const dictWords = [...new Set(fails.filter(f => f.kind === 'dict').map(f => f.word))];
   if (dictWords.length) {
     return { err: dictWords.map(w => `'${w}'`).join(', ') + '(으)로 읽어도 사전에 없는 단어입니다.' };
+  }
+  const dupWords = [...new Set(fails.filter(f => f.kind === 'dup').map(f => f.word))];
+  if (dupWords.length) {
+    return { err: dupWords.map(w => `'${w}'`).join(', ') + '(은)는 이미 보드에서 쓰인 단어예요. 한 단어는 한 번만 쓸 수 있어요.' };
   }
   const conf = fails.find(f => f.kind === 'conflict');
   if (conf) return { err: conf.msg, conflictTyped: conf.i, word: prefix + typed + suffix, startX: sx, startY: sy };
@@ -620,7 +626,7 @@ function checkPreview() {
     return;
   }
 
-  const r = resolvePlace(typed, sel.x, sel.y, sel.dir, getLocalCell, cells.size === 0);
+  const r = resolvePlace(typed, sel.x, sel.y, sel.dir, getLocalCell, cells.size === 0, usedWords);
   if (r.ok) {
     preview = { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: -1 };
     setMsg(r.canonical !== r.word
@@ -658,7 +664,9 @@ async function submit() {
         return { ch: c.ch, dirs: [c.h && 'h', c.v && 'v'].filter(Boolean) };
       };
       const empty = Object.keys(board.cells).length === 0;
-      const r = resolvePlace(typed, x, y, dir, getCell, empty);
+      const wordsList = Array.isArray(board.words) ? board.words : Object.values(board.words);
+      const usedWordsTx = new Set(wordsList.map(w => w.canonical || w.word));
+      const r = resolvePlace(typed, x, y, dir, getCell, empty, usedWordsTx);
       if (!r.ok) { lastErr = r.err; return; } // abort
 
       const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
@@ -763,6 +771,7 @@ boardRef.on('value', snap => {
   }
   const words = board.words ? (Array.isArray(board.words) ? board.words : Object.values(board.words)) : [];
   wordCount = words.length;
+  usedWords = new Set(words.map(w => w.canonical || w.word));
   const wasFirst = firstSync;
   firstSync = false;
   updateStats();
