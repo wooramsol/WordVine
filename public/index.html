@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>WordVine — 낱말넝쿨</title>
+<title>낱말바둑</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
@@ -26,12 +26,12 @@
   }
   #infoPanel b { color: #1a1a1a; font-size: 15px; }
   #infoPanel.hidden { display: none; }
-  #stats { margin-top: 4px; color: #6b5e3f; }
   #credit { margin-top: 8px; font-size: 12px; }
   #credit a { color: #a08c5a; text-decoration: none; }
   #credit a:hover { text-decoration: underline; }
-  #status { position: fixed; top: 12px; right: 12px; z-index: 10; font-size: 12px;
-    padding: 6px 10px; border-radius: 20px; background: #e5e0d3; color: #777; }
+  #topRight { position: fixed; top: 12px; right: 12px; z-index: 10; display: flex; gap: 6px; }
+  #status, #userCountTag { font-size: 12px; padding: 6px 10px; border-radius: 20px;
+    background: #e5e0d3; color: #777; white-space: nowrap; }
   #status.on { background: #dcefdb; color: #2c6e2f; }
 
   #leaderboard {
@@ -48,39 +48,26 @@
   #leaderboard li::before { content: counter(lb); width: 14px; color: #9a927d; font-size: 11px; }
   #leaderboard .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   #leaderboard .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #leaderboard li.me .name { font-weight: 700; color: #3b6ea5; }
+  #leaderboard li.me .name { font-weight: 700; }
   #leaderboard .cnt { color: #6b5e3f; font-variant-numeric: tabular-nums; }
 
-  #popup {
-    position: fixed; z-index: 20; display: none;
-    background: #fff; border: 1px solid #cfc7b5; border-radius: 12px;
-    padding: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.18); width: 250px;
-  }
-  #popup .dirs { display: flex; gap: 6px; margin-bottom: 8px; }
-  #popup .dirs button {
-    flex: 1; padding: 6px 0; border: 1px solid #cfc7b5; background: #f7f4ec;
-    border-radius: 8px; cursor: pointer; font-size: 13px;
-  }
-  #popup .dirs button.sel { background: #3b6ea5; color: #fff; border-color: #3b6ea5; }
-  #popup .dirs button:disabled {
-    opacity: .35; cursor: not-allowed; text-decoration: line-through;
-    background: #eee; color: #888; border-color: #ddd;
-  }
-  #popup .hint { font-size: 11px; color: #9a927d; margin: -3px 0 8px; line-height: 1.4; }
+  /* 칸에 직접 입력: 보이는 입력창/버튼 없음. wordInput은 IME(한글 조합) 지원을 위해
+     실제로 존재하지만 화면엔 보이지 않고, 타이핑한 글자는 캔버스 칸에 바로 그려짐. */
   #wordInput {
-    width: 100%; padding: 8px 10px; font-size: 16px; border: 1px solid #cfc7b5;
-    border-radius: 8px; outline: none;
+    position: fixed; z-index: 20; opacity: 0; border: none; padding: 0; margin: 0;
+    font-size: 16px; background: transparent; caret-color: transparent;
+    pointer-events: none;
   }
-  #wordInput:focus { border-color: #3b6ea5; }
-  #popup .actions { display: flex; gap: 6px; margin-top: 8px; }
-  #popup .actions button {
-    flex: 1; padding: 7px 0; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;
+  #modeBadge {
+    position: fixed; z-index: 21; display: none;
+    padding: 3px 9px; border-radius: 10px; font-size: 12px; font-weight: 700;
+    background: #eee7d8; color: #6b5e3f; border: 1.5px solid #cfc7b5;
+    pointer-events: none; white-space: nowrap; transform: translate(-50%, -130%);
+    box-shadow: 0 2px 6px rgba(0,0,0,.15);
   }
-  #submitBtn { background: #3b6ea5; color: #fff; }
-  #submitBtn:disabled { background: #b8c4d2; cursor: not-allowed; }
-  #cancelBtn { background: #eee7d8; color: #555; }
-  #popupMsg { font-size: 12px; margin-top: 6px; min-height: 16px; color: #b23b3b; }
-  #popupMsg.ok { color: #2c6e2f; }
+  #modeBadge.show { display: block; }
+  #modeBadge.ok { background: #dcefdb; color: #2c6e2f; border-color: #8fcf93; }
+  #modeBadge.err { background: #f7dcdc; color: #a23c3c; border-color: #e29a9a; }
 
   #toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -89,17 +76,7 @@
     max-width: 90vw; text-align: center;
   }
 
-  /* 모바일: 팝업을 하단 시트로 */
   @media (max-width: 640px) {
-    #popup.sheet {
-      left: 0 !important; right: 0; top: auto !important; bottom: 0;
-      width: 100%; border-radius: 16px 16px 0 0; border-bottom: none;
-      padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
-      box-shadow: 0 -6px 24px rgba(0,0,0,.18);
-    }
-    #popup .dirs button { padding: 10px 0; font-size: 15px; }
-    #popup .actions button { padding: 12px 0; font-size: 15px; }
-    #wordInput { padding: 10px 12px; }
     #toast { bottom: auto; top: 60px; }
     #leaderboard { font-size: 11px; padding: 8px 10px; min-width: 120px; max-width: 160px; }
   }
@@ -108,34 +85,28 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">WordVine?</div>
+<div id="brand">낱말바둑?</div>
 <div id="infoPanel" class="hidden">
-  <b>WordVine(낱말넝쿨)</b>
-  <div>모두가 함께 가꾸는 낱말넝쿨입니다.<br>
-  칸을 클릭해서 낱말을 이어주세요.<br>
+  <b>낱말바둑</b>
+  <div>모두가 함께하는 낱말바둑입니다.<br>
+  바둑처럼 글자로 영역을 완전히 둘러싸면 그 땅을 차지해요.<br>
+  칸을 클릭하고 바로 타이핑하세요.<br>
   <span style="color:#8a7a4f">방향키로 칸 이동, Tab으로 가로/세로 전환</span></div>
-  <div id="stats">낱말수 0개, 접속자 1명</div>
   <div id="credit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
 </div>
-<div id="status">연결 중…</div>
+<div id="topRight">
+  <div id="status">연결 중…</div>
+  <div id="userCountTag">접속자 1명</div>
+</div>
 <div id="leaderboard" class="hidden">
   <b>땅따먹기 순위</b>
   <ol id="lbList"></ol>
 </div>
 
-<div id="popup">
-  <div class="dirs">
-    <button id="dirH">가로 →</button>
-    <button id="dirV">세로 ↓</button>
-  </div>
-  <div class="hint">Tab: 가로/세로 전환 · 방향키: 칸 이동</div>
-  <input id="wordInput" placeholder="단어 입력" autocomplete="off">
-  <div id="popupMsg"></div>
-  <div class="actions">
-    <button id="submitBtn">놓기</button>
-    <button id="cancelBtn">취소</button>
-  </div>
-</div>
+<!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
+     화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
+<input id="wordInput" autocomplete="off" spellcheck="false">
+<div id="modeBadge"></div>
 
 <div id="toast"></div>
 
@@ -148,15 +119,27 @@
 const cells = new Map();            // "x,y" -> { ch, dirs:[], fresh }
 const K = (x, y) => x + ',' + y;
 let usedWords = new Set();          // 이미 보드에 쓰인 단어(canonical 기준) — 중복 사용 방지
-let wordCount = 0, userCount = 1;
+let userCount = 1;
 let DICT = null;                    // 사전 (Hosting에서 로드)
-const clientId = (() => {
+let clientId = null;                // /api/identify(IP 기반 익명 ID) 로 비동기 확정됨 — boot() 참고
+let boardRef = null;                // Firebase 준비되면 boot()에서 할당
+let myPresenceRef = null;           // 내 프레즌스 노드(선택 칸/입력 중인 글자 브로드캐스트용)
+const livePeers = new Map();        // clientId -> { x, y, dir, typed, ts } — 다른 유저의 실시간 입력 상황
+
+// IP 기반 익명 ID 발급 (서버: functions/index.js). 함수 호출 실패 시(로컬 개발 등)엔
+// 기존 방식(브라우저별 임의 ID)으로 폴백해서 앱이 계속 동작하게 함.
+async function fetchClientId() {
+  try {
+    const res = await fetch('/api/identify');
+    const data = await res.json();
+    if (data && data.id) return data.id;
+  } catch (e) { /* 폴백으로 진행 */ }
   try {
     let id = localStorage.getItem('wv-id');
     if (!id) { id = '유저' + Math.random().toString(36).slice(2, 6); localStorage.setItem('wv-id', id); }
     return id;
   } catch { return '유저' + Math.random().toString(36).slice(2, 6); }
-})();
+}
 
 let camX = -6, camY = -5, cellSize = 48;
 
@@ -355,12 +338,16 @@ function cellBox(sx, sy, fill, stroke, lw) {
   ctx.stroke();
 }
 
-// 유저 ID -> 고유 색상(hue) 해시 — 포획 영역/리더보드 색상 표시에 사용
+// 유저 ID -> 고유 색상(hue) 해시 — 포획 영역/리더보드/하이라이트 색상 표시에 공통으로 사용
 function ownerHue(owner) {
   let h = 0;
   const s = owner || '';
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h % 360;
+}
+// 내(현재 접속자) 색상 — clientId 확정 전(로딩 중)에는 기본 파랑 계열 사용
+function myHue() {
+  return clientId ? ownerHue(clientId) : 210;
 }
 
 // 가로/세로 1회 제한 규칙 삭제: 어떤 칸이든 항상 이어서 쓸 수 있음
@@ -385,10 +372,11 @@ function draw() {
   for (let y = y0; y <= y1; y++) { const [, sy] = worldToScreen(0, y); ctx.moveTo(0, sy); ctx.lineTo(innerWidth, sy); }
   ctx.stroke();
 
-  // 선택 칸의 진행 방향(가로/세로) 전체 줄을 은은하게 하이라이트 (입력 가능한 칸일 때만)
+  // 선택 칸의 진행 방향(가로/세로) 전체 줄을 내 색으로 은은하게 하이라이트 (입력 가능한 칸일 때만)
+  const myHueVal = myHue();
   if (sel && dirAvailable(sel.x, sel.y, sel.dir)) {
     const [selSx, selSy] = worldToScreen(sel.x, sel.y);
-    ctx.fillStyle = 'rgba(59,110,165,.07)';
+    ctx.fillStyle = `hsla(${myHueVal}, 60%, 50%, .08)`;
     if (sel.dir === 'h') ctx.fillRect(0, selSy, innerWidth, cellSize);
     else ctx.fillRect(selSx, 0, cellSize, innerHeight);
   }
@@ -421,6 +409,24 @@ function draw() {
     ctx.fillText(c.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
   }
 
+  // 다른 유저들의 실시간 선택 칸 / 입력 중인 글자 (누구나 중간 참여 가능하므로 항상 보이게)
+  for (const [id, p] of livePeers) {
+    const hue = ownerHue(id);
+    const [psx, psy] = worldToScreen(p.x, p.y);
+    cellBox(psx, psy, `hsla(${hue}, 65%, 55%, .15)`, `hsl(${hue}, 55%, 45%)`, 1.5);
+    if (p.typed) {
+      const pdx = p.dir === 'h' ? 1 : 0, pdy = p.dir === 'v' ? 1 : 0;
+      for (let i = 0; i < p.typed.length; i++) {
+        const cx = p.x + pdx * i, cy = p.y + pdy * i;
+        if (cells.has(K(cx, cy))) continue; // 이미 글자 있는 칸은 겹쳐 그리지 않음
+        const [sx, sy] = worldToScreen(cx, cy);
+        cellBox(sx, sy, `hsla(${hue}, 70%, 55%, .22)`, `hsl(${hue}, 60%, 45%)`, 1.5);
+        ctx.fillStyle = `hsl(${hue}, 60%, 38%)`;
+        ctx.fillText(p.typed[i], sx + cellSize / 2, sy + cellSize / 2 + 1);
+      }
+    }
+  }
+
   if (sel && preview) {
     const dx = sel.dir === 'h' ? 1 : 0, dy = sel.dir === 'v' ? 1 : 0;
     for (let i = 0; i < preview.word.length; i++) {
@@ -430,9 +436,9 @@ function draw() {
       if (existing) {
         cellBox(sx, sy, 'rgba(90,180,110,.18)', '#3e8e52', 2);
       } else {
-        cellBox(sx, sy, 'rgba(80,140,220,.25)', '#3b6ea5', 2);
+        cellBox(sx, sy, `hsla(${myHueVal}, 70%, 55%, .25)`, `hsl(${myHueVal}, 65%, 45%)`, 2);
         const ch = preview.word[i];
-        if (ch) { ctx.fillStyle = '#3b6ea5'; ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1); }
+        if (ch) { ctx.fillStyle = `hsl(${myHueVal}, 65%, 40%)`; ctx.fillText(ch, sx + cellSize / 2, sy + cellSize / 2 + 1); }
       }
     }
     if (preview.conflictTyped >= 0) {
@@ -442,8 +448,10 @@ function draw() {
     }
   } else if (sel) {
     const [sx, sy] = worldToScreen(sel.x, sel.y);
-    cellBox(sx, sy, 'rgba(80,140,220,.2)', '#3b6ea5', 2);
+    cellBox(sx, sy, `hsla(${myHueVal}, 70%, 55%, .2)`, `hsl(${myHueVal}, 65%, 45%)`, 2);
   }
+
+  positionSelUI(); // 팬/줌 중에도 숨김 input과 모드 배지가 선택 칸을 계속 따라다니게
 }
 
 setInterval(() => {
@@ -457,8 +465,8 @@ setInterval(() => {
 // 현재 보이는(키보드·입력시트 제외) 영역 높이
 function visibleHeight() {
   const vv = window.visualViewport;
-  let vh = vv ? vv.height : innerHeight;
-  if (innerWidth <= 640 && popup.style.display === 'block') vh -= 195; // 하단 시트
+  // 모바일 키보드가 뜨면 visualViewport.height가 자동으로 줄어들어 반영됨 (별도 시트 없음)
+  const vh = vv ? vv.height : innerHeight;
   return Math.max(vh, 120);
 }
 
@@ -603,58 +611,75 @@ canvas.addEventListener('touchend', e => {
   touch = null;
 }, { passive: false });
 
-// ---------- 입력 팝업 ----------
-const popup = document.getElementById('popup');
+// ---------- 칸 선택 / 직접 입력 ----------
+// wordInput: 화면엔 안 보이지만 실제 <input>이라 한글 IME 조합이 정상 동작함.
+// modeBadge: 가로/세로 모드 + 입력 상태(빈칸/성공/에러)만 아주 작게 표시.
 const wordInput = document.getElementById('wordInput');
-const popupMsg = document.getElementById('popupMsg');
-const dirH = document.getElementById('dirH');
-const dirV = document.getElementById('dirV');
-const submitBtn = document.getElementById('submitBtn');
+const modeBadge = document.getElementById('modeBadge');
+let submitEnabled = false; // 과거 submitBtn.disabled 역할 — Enter 제출 가능 여부
+
+// 선택된 칸 위치에 맞춰 숨김 input과 배지를 이동 (팬/줌 때마다 draw()에서도 호출됨)
+function positionSelUI() {
+  if (!sel) { modeBadge.classList.remove('show'); return; }
+  const [sx, sy] = worldToScreen(sel.x, sel.y);
+  wordInput.style.left = sx + 'px';
+  wordInput.style.top = sy + 'px';
+  wordInput.style.width = cellSize + 'px';
+  wordInput.style.height = cellSize + 'px';
+  modeBadge.style.left = (sx + cellSize / 2) + 'px';
+  modeBadge.style.top = sy + 'px';
+  modeBadge.classList.add('show');
+}
 
 function openPopup(cx, cy, px, py) {
-  // 가로/세로 1회 제한이 없어져 모든 칸에서 두 방향 다 항상 선택 가능
-  dirH.disabled = false;
-  dirV.disabled = false;
   const dir = sel?.dir || 'h';
   sel = { x: cx, y: cy, dir };
   preview = null;
   wordInput.value = '';
   const capturedHere = cells.get(K(cx, cy))?.captured;
-  setMsg(capturedHere ? '이 칸은 포획된 영역이라 사용할 수 없어요. 화살표로 다른 칸으로 이동해 보세요.' : '');
-  submitBtn.disabled = true;
-  updateDirBtns();
-  popup.style.display = 'block';
-  if (innerWidth <= 640) {
-    // 모바일: 하단 시트 (키보드에 가리지 않게)
-    popup.classList.add('sheet');
-    popup.style.left = '';
-    popup.style.top = '';
-  } else {
-    popup.classList.remove('sheet');
-    popup.style.left = Math.min(px + 10, innerWidth - 270) + 'px';
-    popup.style.top = Math.min(py + 10, innerHeight - 180) + 'px';
-  }
+  setMsg(capturedHere ? '포획된 영역이라 사용할 수 없어요. 화살표로 다른 칸으로 이동해 보세요.' : '');
+  submitEnabled = false;
+  updateModeBadge();
+  positionSelUI();
   wordInput.focus();
   ensureVisible();
+  broadcastTyping();
 }
 function closePopup() {
   sel = null; preview = null; placing = false;
-  popup.style.display = 'none';
+  modeBadge.classList.remove('show');
+  broadcastTyping();
   draw();
 }
-function setMsg(text, ok) {
-  popupMsg.textContent = text;
-  popupMsg.classList.toggle('ok', !!ok);
-}
-function updateDirBtns() {
-  dirH.classList.toggle('sel', sel.dir === 'h');
-  dirV.classList.toggle('sel', sel.dir === 'v');
-}
-dirH.onclick = () => { sel.dir = 'h'; updateDirBtns(); checkPreview(); };
-dirV.onclick = () => { sel.dir = 'v'; updateDirBtns(); checkPreview(); };
-document.getElementById('cancelBtn').onclick = closePopup;
 
-wordInput.addEventListener('input', checkPreview);
+// 누구나 중간에 참여할 수 있으므로, 내가 선택한 칸/입력 중인 글자를 다른 유저에게 실시간 브로드캐스트
+let broadcastTimer = null;
+function broadcastTyping() {
+  if (!myPresenceRef) return;
+  clearTimeout(broadcastTimer);
+  broadcastTimer = setTimeout(() => {
+    if (!sel) {
+      myPresenceRef.update({ x: null, y: null, dir: null, typed: null, ts: Date.now() });
+    } else {
+      myPresenceRef.update({ x: sel.x, y: sel.y, dir: sel.dir, typed: wordInput.value, ts: Date.now() });
+    }
+  }, 150);
+}
+// 텍스트 상자가 없으므로 메시지는 배지 색상(초록=성공/빨강=에러)으로만 표시하고,
+// 실제 문구는 toast로 짧게 띄운다.
+function setMsg(text, ok) {
+  modeBadge.classList.toggle('ok', !!ok);
+  modeBadge.classList.toggle('err', !ok && !!text);
+  if (text) modeBadge.title = text;
+  else modeBadge.removeAttribute('title');
+}
+function updateModeBadge() {
+  if (!sel) return;
+  const arrow = sel.dir === 'h' ? '가로 →' : '세로 ↓';
+  modeBadge.textContent = arrow;
+}
+
+wordInput.addEventListener('input', () => { checkPreview(); broadcastTyping(); });
 wordInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { submit(); return; }
   if (e.key === 'Escape') { closePopup(); return; }
@@ -677,15 +702,13 @@ function moveSel(dx, dy) {
   openPopup(nx, ny, sx + cellSize / 2, sy + cellSize / 2);
 }
 
-// Tab으로 가로/세로 전환 (반대 방향이 이미 막혀 있으면 무시)
+// Tab으로 가로/세로 전환 (가로/세로 제한이 없어져 항상 전환 가능)
 function toggleDir() {
   if (!sel) return;
-  const nextDir = sel.dir === 'h' ? 'v' : 'h';
-  if (nextDir === 'h' && dirH.disabled) return;
-  if (nextDir === 'v' && dirV.disabled) return;
-  sel.dir = nextDir;
-  updateDirBtns();
+  sel.dir = sel.dir === 'h' ? 'v' : 'h';
+  updateModeBadge();
   checkPreview();
+  broadcastTyping();
 }
 
 const getLocalCell = (x, y) => cells.get(K(x, y)) || null;
@@ -698,14 +721,14 @@ function checkPreview() {
   if (!typed) {
     preview = null;
     setMsg('');
-    submitBtn.disabled = true;
+    submitEnabled = false;
     draw();
     return;
   }
   if (!/^[가-힣]+$/.test(typed)) {
     preview = null;
     setMsg('한글만 입력할 수 있어요.');
-    submitBtn.disabled = true;
+    submitEnabled = false;
     draw();
     return;
   }
@@ -716,11 +739,11 @@ function checkPreview() {
     setMsg(r.canonical !== r.word
       ? `✓ '${r.word}' — 두음법칙 인정! (${r.canonical})`
       : `✓ '${r.word}' — 사전에 있어요!`, true);
-    submitBtn.disabled = false;
+    submitEnabled = true;
   } else {
     preview = r.word ? { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: r.conflictTyped ?? -1 } : null;
     setMsg(r.err);
-    submitBtn.disabled = true;
+    submitEnabled = false;
   }
   ensureVisible();
 }
@@ -730,7 +753,8 @@ async function submit() {
   if (!sel || placing) return;
   const typed = wordInput.value.trim();
   if (!typed || !/^[가-힣]+$/.test(typed)) return;
-  if (!DICT) { setMsg('사전을 아직 불러오는 중이에요…'); return; }
+  if (!DICT) { setMsg('사전을 아직 불러오는 중이에요…'); showToast('사전을 아직 불러오는 중이에요…'); return; }
+  if (!clientId || !boardRef) { setMsg('플레이어 확인 중이에요…'); showToast('플레이어 확인 중이에요… 잠시 후 다시 시도해 주세요.'); return; }
   placing = true;
   setMsg('놓는 중…');
 
@@ -796,14 +820,15 @@ async function submit() {
         openPopup(x, y, sx + cellSize / 2, sy + cellSize / 2);
       }
     } else if (sel) {
-      setMsg(lastErr || '다른 유저와 겹쳤어요. 다시 시도해 주세요.');
+      const errMsg = lastErr || '다른 유저와 겹쳤어요. 다시 시도해 주세요.';
+      setMsg(errMsg);
+      showToast(errMsg);
     }
   } catch (e) {
     placing = false;
-    if (sel) setMsg('연결에 실패했어요. 다시 시도해 주세요.');
+    if (sel) { setMsg('연결에 실패했어요. 다시 시도해 주세요.'); showToast('연결에 실패했어요. 다시 시도해 주세요.'); }
   }
 }
-submitBtn.onclick = submit;
 
 // ---------- 토스트 ----------
 const toast = document.getElementById('toast');
@@ -823,10 +848,10 @@ if (innerWidth > 640) infoPanel.classList.remove('hidden'); // 데스크톱은 �
 
 // ---------- Firebase 실시간 동기화 ----------
 const statusEl = document.getElementById('status');
-const statsEl = document.getElementById('stats');
+const userCountTagEl = document.getElementById('userCountTag');
 
 function updateStats() {
-  statsEl.textContent = `낱말수 ${wordCount}개, 접속자 ${userCount}명`;
+  userCountTagEl.textContent = `접속자 ${userCount}명`;
 }
 
 // ---------- 땅따먹기 리더보드 ----------
@@ -844,13 +869,15 @@ function updateLeaderboard() {
   // innerHTML이 아닌 textContent/DOM API로만 채워 넣어 삽입 공격을 원천 차단
   for (const [owner, count] of ranked) {
     const li = document.createElement('li');
+    const hue = ownerHue(owner);
     if (owner === clientId) li.className = 'me';
     const dot = document.createElement('span');
     dot.className = 'dot';
-    dot.style.background = `hsl(${ownerHue(owner)}, 55%, 55%)`;
+    dot.style.background = `hsl(${hue}, 55%, 55%)`;
     const name = document.createElement('span');
     name.className = 'name';
     name.textContent = owner;
+    if (owner === clientId) name.style.color = `hsl(${hue}, 60%, 40%)`;
     const cnt = document.createElement('span');
     cnt.className = 'cnt';
     cnt.textContent = String(count);
@@ -860,61 +887,7 @@ function updateLeaderboard() {
   leaderboardEl.classList.remove('hidden');
 }
 
-firebase.initializeApp(window.FIREBASE_CONFIG);
-const db = firebase.database();
-const boardRef = db.ref('board');
-
-// 연결 상태
-db.ref('.info/connected').on('value', snap => {
-  if (snap.val()) {
-    statusEl.textContent = '● 실시간 연결됨';
-    statusEl.classList.add('on');
-    // 접속자 표시 (연결이 끊기면 자동 제거)
-    const myRef = db.ref('presence/' + clientId);
-    myRef.set(true);
-    myRef.onDisconnect().remove();
-  } else {
-    statusEl.textContent = '연결 끊김, 재시도 중…';
-    statusEl.classList.remove('on');
-  }
-});
-
-db.ref('presence').on('value', snap => {
-  userCount = Math.max(1, snap.numChildren());
-  updateStats();
-});
-
-// 보드 실시간 반영
-let firstSync = true;
-boardRef.on('value', snap => {
-  const board = snap.val() || { cells: {}, words: [] };
-  const bc = board.cells || {};
-  const now = Date.now();
-  const remote = new Set(Object.keys(bc));
-  for (const k of [...cells.keys()]) if (!remote.has(k)) cells.delete(k);
-  for (const [k, c] of Object.entries(bc)) {
-    const prev = cells.get(k);
-    const fresh = prev ? prev.fresh : (firstSync ? 0 : now);
-    if (c.captured) {
-      cells.set(k, { ch: null, dirs: [], captured: true, owner: c.owner, fresh });
-    } else {
-      const dirs = [c.h && 'h', c.v && 'v'].filter(Boolean);
-      cells.set(k, { ch: c.ch, dirs, captured: false, fresh });
-    }
-  }
-  const words = board.words ? (Array.isArray(board.words) ? board.words : Object.values(board.words)) : [];
-  wordCount = words.length;
-  usedWords = new Set(words.map(w => w.canonical || w.word));
-  const wasFirst = firstSync;
-  firstSync = false;
-  updateStats();
-  updateLeaderboard();
-  if (wasFirst) fitBoard(); // 첫 로드: 단어뭉치를 화면 가운데 적절한 크기로
-  else draw();
-});
-
-// ---------- 사전 로드 ----------
-statusEl.textContent = '사전 불러오는 중…';
+// ---------- 사전 로드 (플레이어 ID 확정과 무관하게 바로 시작) ----------
 fetch('words.txt')
   .then(r => r.text())
   .then(t => {
@@ -923,6 +896,74 @@ fetch('words.txt')
     if (sel) checkPreview();
   })
   .catch(() => { statusEl.textContent = '사전 로드 실패 — 새로고침 해주세요'; });
+
+// ---------- 부트스트랩: IP 기반 플레이어 ID 확정 후 Firebase 연결 ----------
+async function boot() {
+  clientId = await fetchClientId();
+
+  firebase.initializeApp(window.FIREBASE_CONFIG);
+  const db = firebase.database();
+  boardRef = db.ref('board');
+
+  // 연결 상태 + 내 프레즌스(접속 표시 + 실시간 입력 상황 브로드캐스트)
+  db.ref('.info/connected').on('value', snap => {
+    if (snap.val()) {
+      statusEl.textContent = '● 실시간 연결됨';
+      statusEl.classList.add('on');
+      // 접속자 표시 + 선택 칸/입력 중인 글자 브로드캐스트 (연결이 끊기면 자동 제거)
+      myPresenceRef = db.ref('presence/' + clientId);
+      myPresenceRef.set({ ts: Date.now() });
+      myPresenceRef.onDisconnect().remove();
+    } else {
+      statusEl.textContent = '연결 끊김, 재시도 중…';
+      statusEl.classList.remove('on');
+    }
+  });
+
+  db.ref('presence').on('value', snap => {
+    const val = snap.val() || {};
+    userCount = Math.max(1, Object.keys(val).length);
+    updateStats();
+    // 다른 유저들의 실시간 선택 칸/입력 상황 갱신 (누구나 중간에 참여해도 바로 보이게)
+    livePeers.clear();
+    const now = Date.now();
+    for (const [id, p] of Object.entries(val)) {
+      if (id === clientId || !p || typeof p.x !== 'number') continue;
+      if (p.ts && now - p.ts > 15000) continue; // 오래 갱신 안 된 상태(비정상 종료 등)는 무시
+      livePeers.set(id, p);
+    }
+    draw();
+  });
+
+  // 보드 실시간 반영
+  let firstSync = true;
+  boardRef.on('value', snap => {
+    const board = snap.val() || { cells: {}, words: [] };
+    const bc = board.cells || {};
+    const now = Date.now();
+    const remote = new Set(Object.keys(bc));
+    for (const k of [...cells.keys()]) if (!remote.has(k)) cells.delete(k);
+    for (const [k, c] of Object.entries(bc)) {
+      const prev = cells.get(k);
+      const fresh = prev ? prev.fresh : (firstSync ? 0 : now);
+      if (c.captured) {
+        cells.set(k, { ch: null, dirs: [], captured: true, owner: c.owner, fresh });
+      } else {
+        const dirs = [c.h && 'h', c.v && 'v'].filter(Boolean);
+        cells.set(k, { ch: c.ch, dirs, captured: false, fresh });
+      }
+    }
+    const words = board.words ? (Array.isArray(board.words) ? board.words : Object.values(board.words)) : [];
+    usedWords = new Set(words.map(w => w.canonical || w.word));
+    const wasFirst = firstSync;
+    firstSync = false;
+    updateStats();
+    updateLeaderboard();
+    if (wasFirst) fitBoard(); // 첫 로드: 단어뭉치를 화면 가운데 적절한 크기로
+    else draw();
+  });
+}
+boot();
 
 resize();
 </script>
