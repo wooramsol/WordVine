@@ -679,6 +679,8 @@ if (window.visualViewport) {
         centerOnSel();
         ensureVisible();
         positionSelUI();
+        positionWordInput(); // 키보드가 열리거나 닫히며 카메라가 재조정된 뒤에도 보이지 않는
+                              // wordInput이 실제 칸 위치와 계속 어긋나지 않게 함
       }
     }, 150);
   });
@@ -839,6 +841,15 @@ function openPopup(cx, cy, px, py) {
   updateModeBadge();
   positionWordInput();
   positionSelUI();
+  // 모바일 키보드 자체의 "닫기"(내려가기) 버튼을 눌러 키보드를 숨기면, 일부 브라우저
+  // (특히 안드로이드)는 키보드만 사라질 뿐 wordInput은 여전히 document.activeElement로
+  // 남아있음. 그 상태에서 같은 칸(혹은 다른 칸)을 다시 탭해도 이미 "포커스돼 있다"고
+  // 판단해서 focus()가 아무 효과가 없어 키보드가 다시 뜨지 않고, 결국 입력이 전혀 안 되는
+  // 것처럼 보이는 버그였음. blur()로 포커스 상태를 명시적으로 한 번 끊어준 뒤(이미 포커스가
+  // 없던 상태였다면 이 호출은 아무 영향 없음) 바로 focus()를 걸어서, 매번 "새로운" 포커스
+  // 전환이 확실히 일어나게 함 — iOS에서 키보드가 뜨려면 focus()가 사용자 제스처 처리 도중
+  // 동기적으로 호출돼야 하므로 setTimeout/rAF 없이 같은 틱에서 바로 실행한다.
+  wordInput.blur();
   wordInput.focus();
   draw();
   broadcastTyping();
