@@ -125,7 +125,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.0</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.1</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -165,6 +165,7 @@ const K = (x, y) => x + ',' + y;
 const BOARD_MIN = -15, BOARD_MAX = 14; // 30칸: -15 ~ 14
 const inBounds = (x, y) => x >= BOARD_MIN && x <= BOARD_MAX && y >= BOARD_MIN && y <= BOARD_MAX;
 const OUT_OF_BOUNDS_WALL = { ch: null, dirs: [], captured: true, owner: null };
+const PAN_MARGIN = 5; // 보드 경계 밖으로 카메라를 옮길 수 있는 여유 칸 수(끝없이 스크롤되는 것 방지)
 let usedWords = new Set();          // 이미 보드에 쓰인 단어(canonical 기준) — 중복 사용 방지
 let userCount = 1;
 let onlineIds = new Set();          // 지금 접속 중인 플레이어 clientId 목록(나 포함) — 점수표 표시용
@@ -450,7 +451,20 @@ function dirAvailable(x, y, dir) {
   return true;
 }
 
+// 카메라(camX/camY)가 30x30 보드 밖으로 끝없이 스크롤되지 않도록 여유(PAN_MARGIN)를 두고
+// 제한함 — 경계선이 잘 보일 정도의 여백은 남기되, 그 너머 빈 공간으로 무한히 나가지는 못하게
+function clampCamera() {
+  const vw = innerWidth, vh = innerHeight;
+  const minX = BOARD_MIN - PAN_MARGIN, maxWorldX = BOARD_MAX + 1 + PAN_MARGIN;
+  const minY = BOARD_MIN - PAN_MARGIN, maxWorldY = BOARD_MAX + 1 + PAN_MARGIN;
+  const maxCamX = Math.max(minX, maxWorldX - vw / cellSize);
+  const maxCamY = Math.max(minY, maxWorldY - vh / cellSize);
+  camX = Math.min(Math.max(camX, minX), maxCamX);
+  camY = Math.min(Math.max(camY, minY), maxCamY);
+}
+
 function draw() {
+  clampCamera();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, innerWidth, innerHeight);
 
@@ -1183,6 +1197,8 @@ resetBoardBtn.onclick = () => {
   if (pw !== '1102') { showToast('비밀번호가 틀렸어요.'); return; }
   if (!confirm('정말 모든 낱말을 초기화할까요?\n테스트용 기능이며 지금 접속 중인 모든 사람에게 영향을 줍니다.')) return;
   boardRef.set({ cells: {}, words: [], version: 0 });
+  prevScores.clear(); // 점수판 카운트업 애니메이션용으로 기억해둔 직전 점수도 같이 초기화
+                       // (안 지우면 리셋 후 다시 포획해도 "직전 점수"가 예전 값으로 남아있음)
   closePopup();
   showToast('보드를 초기화했어요.');
 };
