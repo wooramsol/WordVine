@@ -119,7 +119,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.0.8</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.0.9</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -325,15 +325,15 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
 }
 
 // ---------- 땅따먹기: 완전히 둘러싸인 빈 칸 포획(flood-fill) ----------
-// getCell(x,y): 벽(글자 또는 이미 포획된 칸)이면 truthy, 진짜 빈 칸이면 null
+// getCell(x,y): 벽(글자, 이미 포획된 칸, 30x30 경계 밖)이면 truthy, 진짜 빈 칸이면 null
 // newlyPlacedCoords: 이번에 새로 놓인 글자 칸 좌표들 — 이 칸들의 인접 빈 칸에서만 탐색 시작
-// (보드가 무한이므로, 열려서 무한히 뻗어나가는 영역은 안전장치가 있어야 함. 예전엔 방문한
-// 칸 "개수"로 잘랐는데(400칸), 그러면 실제로 둘러싸인 큰 정사각형도 그냥 못 먹었음. 대신
-// 영역의 가로/세로 "폭"(bounding box)이 100칸을 넘는지로 판단 — 즉 100x100 안에서
-// 만들 수 있는 어떤 모양/크기의 영역이든 포획 가능하고, 그보다 넓게 뻗어나가면(=사실상
-// 안 둘러싸인 열린 영역일 가능성이 높음) 포획하지 않음)
+// 보드 경계도 벽으로 치기 때문에(가장자리에 붙어 나머지 삼면만 글자로 막아도 포획 인정),
+// "가운데에 글자 하나만 놓아도 남은 보드 전체가 포획되는" 것을 막을 안전장치가 필요함.
+// 영역의 가로/세로 "폭"(bounding box)이 MAX_SPAN을 넘으면 "포획 아님"으로 처리 —
+// 30x30 보드 기준으로 절반 정도(15칸)까지는 허용하고, 그보다 넓게 뻗어나가면(=사실상
+// 거의 보드 전체를 둘러싼 셈이라 우연/실수일 가능성이 높음) 포획하지 않음
 function findCapturedRegions(getCell, K, newlyPlacedCoords) {
-  const MAX_SPAN = 100; // 영역의 가로 또는 세로 폭이 이 칸 수를 넘으면 "포획 아님"
+  const MAX_SPAN = 15; // 영역의 가로 또는 세로 폭이 이 칸 수를 넘으면 "포획 아님"
   const globalVisited = new Set();
   const captured = [];
   const NEI = (cx, cy) => [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
@@ -1072,20 +1072,15 @@ async function submit() {
       const board = b || { cells: {}, words: [], version: 0 };
       board.cells = board.cells || {};
       board.words = board.words || [];
-      // 단어 배치(접두/접미 연결 포함)에서만 30x30 밖을 벽으로 취급 — "칸을 쓸 수 없다"는
-      // 뜻이지 "그 자체가 나를 둘러싼 벽"이라는 뜻이 아님
+      // 30x30 밖은 벽으로 취급 — 배치(접두/접미 연결)뿐 아니라 포획(땅따먹기) 판정에서도
+      // 마찬가지. 보드 가장자리에 딱 붙어서 나머지 삼면만 글자로 막아도 "완전히 둘러싸인
+      // 것"으로 인정되어야 하기 때문(경기장 담벼락도 결국 한쪽 벽 역할을 하는 것과 같음).
+      // 다만 이것만으로는 "가운데에 글자 하나만 놓아도 남은 보드 전체가 포획되는" 문제가
+      // 생기므로, findCapturedRegions의 MAX_SPAN(영역 폭 제한)을 30x30 보드에 맞게 충분히
+      // 작게 낮춰서 "진짜 작게 둘러싸인 영역"만 포획되고 "사실상 안 둘러싸인 넓은 영역"은
+      // 계속 걸러지게 함
       const getCell = (cx, cy) => {
         if (!inBounds(cx, cy)) return OUT_OF_BOUNDS_WALL;
-        const c = board.cells[K(cx, cy)];
-        if (!c) return null;
-        if (c.captured) return { ch: null, dirs: [], captured: true, owner: c.owner };
-        return { ch: c.ch, dirs: [c.h && 'h', c.v && 'v'].filter(Boolean), captured: false };
-      };
-      // 포획(땅따먹기) 판정에서는 30x30 경계를 벽처럼 쓰면 안 됨 — 그러면 가운데에 글자
-      // 하나만 놓아도 "보드 경계 + 그 글자"로 둘러싸인 것처럼 오판해서 남은 빈 칸 전체가
-      // 포획돼버림(실제로 겪은 버그). 경계 밖은 여기서는 그냥 "빈 칸"처럼 취급해서, 진짜
-      // 글자로 완전히 둘러싸이지 않은 이상 경계를 만나면 계속 뚫려있는 것으로 보고 포획하지 않음
-      const getCellForCapture = (cx, cy) => {
         const c = board.cells[K(cx, cy)];
         if (!c) return null;
         if (c.captured) return { ch: null, dirs: [], captured: true, owner: c.owner };
@@ -1115,7 +1110,7 @@ async function submit() {
       });
 
       // 땅따먹기: 방금 놓은 글자로 완전히 둘러싸인 빈 칸이 생겼는지 검사해 포획 처리
-      const capturedCells = findCapturedRegions(getCellForCapture, K, placedCoords);
+      const capturedCells = findCapturedRegions(getCell, K, placedCoords);
       for (const [cx, cy] of capturedCells) {
         board.cells[K(cx, cy)] = { captured: true, owner: clientId, ts: Date.now() };
       }
