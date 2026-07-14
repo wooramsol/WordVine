@@ -125,7 +125,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.1</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.2</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -165,7 +165,7 @@ const K = (x, y) => x + ',' + y;
 const BOARD_MIN = -15, BOARD_MAX = 14; // 30칸: -15 ~ 14
 const inBounds = (x, y) => x >= BOARD_MIN && x <= BOARD_MAX && y >= BOARD_MIN && y <= BOARD_MAX;
 const OUT_OF_BOUNDS_WALL = { ch: null, dirs: [], captured: true, owner: null };
-const PAN_MARGIN = 5; // 보드 경계 밖으로 카메라를 옮길 수 있는 여유 칸 수(끝없이 스크롤되는 것 방지)
+const PAN_MARGIN = 3; // 보드 경계 밖으로 카메라를 옮길 수 있는 여유 칸 수(끝없이 스크롤되는 것 방지)
 let usedWords = new Set();          // 이미 보드에 쓰인 단어(canonical 기준) — 중복 사용 방지
 let userCount = 1;
 let onlineIds = new Set();          // 지금 접속 중인 플레이어 clientId 목록(나 포함) — 점수표 표시용
@@ -457,10 +457,17 @@ function clampCamera() {
   const vw = innerWidth, vh = innerHeight;
   const minX = BOARD_MIN - PAN_MARGIN, maxWorldX = BOARD_MAX + 1 + PAN_MARGIN;
   const minY = BOARD_MIN - PAN_MARGIN, maxWorldY = BOARD_MAX + 1 + PAN_MARGIN;
-  const maxCamX = Math.max(minX, maxWorldX - vw / cellSize);
-  const maxCamY = Math.max(minY, maxWorldY - vh / cellSize);
-  camX = Math.min(Math.max(camX, minX), maxCamX);
-  camY = Math.min(Math.max(camY, minY), maxCamY);
+  const spanX = maxWorldX - minX, spanY = maxWorldY - minY;
+  const viewSpanX = vw / cellSize, viewSpanY = vh / cellSize;
+  // 최대로 줌아웃해서 화면이 (보드+여유)보다 넓어지면, 예전엔 그냥 왼쪽/위쪽 끝(minX/minY)에
+  // 고정돼서 화면 한쪽으로 쏠려 보였음. 이럴 땐 고정하는 대신 남는 공간을 좌우/상하로
+  // 똑같이 나눠서 보드가 화면 정중앙에 오도록 함
+  camX = viewSpanX >= spanX
+    ? minX - (viewSpanX - spanX) / 2
+    : Math.min(Math.max(camX, minX), maxWorldX - viewSpanX);
+  camY = viewSpanY >= spanY
+    ? minY - (viewSpanY - spanY) / 2
+    : Math.min(Math.max(camY, minY), maxWorldY - viewSpanY);
 }
 
 function draw() {
@@ -480,10 +487,14 @@ function draw() {
   ctx.strokeStyle = '#c3b490'; ctx.lineWidth = 2;
   ctx.strokeRect(boardSx0, boardSy0, boardSx1 - boardSx0, boardSy1 - boardSy0);
 
+  // 격자선도 보드(30x30) 안쪽에서만 그림 — 예전엔 경계 밖 어두운 영역에도 격자선이
+  // 계속 이어져서 마치 그 바깥에도 칸이 있는 것처럼 보였음
   ctx.strokeStyle = '#e3ddd0'; ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let x = x0; x <= x1; x++) { const [sx] = worldToScreen(x, 0); ctx.moveTo(sx, 0); ctx.lineTo(sx, innerHeight); }
-  for (let y = y0; y <= y1; y++) { const [, sy] = worldToScreen(0, y); ctx.moveTo(0, sy); ctx.lineTo(innerWidth, sy); }
+  const gx0 = Math.max(x0, BOARD_MIN), gx1 = Math.min(x1, BOARD_MAX + 1);
+  const gy0 = Math.max(y0, BOARD_MIN), gy1 = Math.min(y1, BOARD_MAX + 1);
+  for (let x = gx0; x <= gx1; x++) { const [sx] = worldToScreen(x, 0); ctx.moveTo(sx, boardSy0); ctx.lineTo(sx, boardSy1); }
+  for (let y = gy0; y <= gy1; y++) { const [, sy] = worldToScreen(0, y); ctx.moveTo(boardSx0, sy); ctx.lineTo(boardSx1, sy); }
   ctx.stroke();
 
   // 선택 칸의 진행 방향(가로/세로) 전체 줄을 내 색으로 은은하게 하이라이트 (입력 가능한 칸일 때만)
