@@ -820,11 +820,26 @@ function positionWordInput() {
 function autoDetectDir(cx, cy) {
   const c = cells.get(K(cx, cy));
   if (c && !c.captured && c.dirs && c.dirs.length === 1) return c.dirs[0];
-  const hasH = cells.has(K(cx - 1, cy)) || cells.has(K(cx + 1, cy));
-  const hasV = cells.has(K(cx, cy - 1)) || cells.has(K(cx, cy + 1));
+
+  // 포획된(차지된) 칸은 벽 취급 — 실제로 이어붙일 수 없으므로 "인접 칸이 있다"는
+  // 판단에서 제외해야 함(칸 기록은 있어도 그 방향으로는 못 쓰는 칸이니까)
+  const usable = (x, y) => { const k = cells.get(K(x, y)); return !!k && !k.captured; };
+  const blocked = (x, y) => { const k = cells.get(K(x, y)); return !!k && k.captured; };
+
+  const hasH = usable(cx - 1, cy) || usable(cx + 1, cy);
+  const hasV = usable(cx, cy - 1) || usable(cx, cy + 1);
   if (hasH && !hasV) return 'h';
   if (hasV && !hasH) return 'v';
-  return sel?.dir || 'h'; // 교차점이거나 인접 글자가 아예 없으면 기존/기본 방향 유지
+
+  // 인접한 기존 글자가 없는 완전히 새 자리라도, 한쪽 방향은 양옆이 포획된 칸으로 막혀
+  // 2글자 이상의 단어를 놓을 자리 자체가 없을 수 있음 — 가로/세로 둘 중 하나만 실제로
+  // 쓸 수 있는 상황이면, 처음부터 그 "쓸 수 있는" 방향으로 자동 선택함
+  const hBlocked = blocked(cx - 1, cy) && blocked(cx + 1, cy);
+  const vBlocked = blocked(cx, cy - 1) && blocked(cx, cy + 1);
+  if (hBlocked && !vBlocked) return 'v';
+  if (vBlocked && !hBlocked) return 'h';
+
+  return sel?.dir || 'h'; // 둘 다 열려있거나 둘 다 막혀있으면 기존/기본 방향 유지
 }
 
 function openPopup(cx, cy, px, py) {
