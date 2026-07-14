@@ -23,6 +23,9 @@
     background: rgba(255,255,255,.95); border: 1px solid #d8d2c4;
     border-radius: 12px; padding: 12px 15px; box-shadow: 0 2px 10px rgba(0,0,0,.1);
     font-size: 13px; color: #444; line-height: 1.7; max-width: 280px;
+    /* 창 높이를 줄였을 때 패널이 화면 아래로 잘려 나가지 않도록, 남는 높이만큼만
+       차지하고 넘치는 내용은 패널 안에서 스크롤되게 함 */
+    max-height: calc(100vh - 70px); overflow-y: auto;
   }
   #infoPanel b { color: #1a1a1a; font-size: 15px; }
   #infoPanel.hidden { display: none; }
@@ -46,6 +49,9 @@
     background: rgba(255,255,255,.95); border: 1px solid #d8d2c4;
     border-radius: 12px; padding: 10px 14px; box-shadow: 0 2px 10px rgba(0,0,0,.1);
     font-size: 12px; color: #444; min-width: 150px; max-width: 220px;
+    /* 접속자 전원을 표시하면서 인원이 많아지거나 창 높이가 줄어들면 화면 밖으로 잘릴 수
+       있으므로, 남는 높이만큼만 차지하고 넘치면 패널 안에서 스크롤되게 함 */
+    max-height: calc(100vh - 60px); overflow-y: auto;
   }
   #leaderboard.hidden { display: none; }
   #leaderboard b { display: block; font-size: 13px; color: #1a1a1a; margin-bottom: 6px; }
@@ -139,6 +145,7 @@ const cells = new Map();            // "x,y" -> { ch, dirs:[], fresh }
 const K = (x, y) => x + ',' + y;
 let usedWords = new Set();          // 이미 보드에 쓰인 단어(canonical 기준) — 중복 사용 방지
 let userCount = 1;
+let onlineIds = new Set();          // 지금 접속 중인 플레이어 clientId 목록(나 포함) — 점수표 표시용
 let DICT = null;                    // 사전 (Hosting에서 로드)
 let clientId = null;                // /api/identify(IP 기반 익명 ID) 로 비동기 확정됨 — boot() 참고
 let boardRef = null;                // Firebase 준비되면 boot()에서 할당
@@ -276,16 +283,22 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
     return { ok: true, word, canonical, startX, startY };
   }
 
-  const dictWords = [...new Set(fails.filter(f => f.kind === 'dict').map(f => f.word))];
-  if (dictWords.length) {
-    return { err: dictWords.map(w => `'${w}'`).join(', ') + '(으)로 읽어도 사전에 없는 단어입니다.' };
-  }
+  // 중복(dup) 메시지를 사전(dict) 메시지보다 먼저 확인해야 함: 부분 접두/접미 조합을
+  // 여러 개 시도하다 보면, 정작 사용자가 의도한 "가장 완전한" 조합은 이미 쓰인 단어(dup)라
+  // 실패했는데, 그보다 짧은 다른 조합이 그냥 사전에 없어서(dict) 실패한 경우도 흔함. 이때
+  // dict 메시지를 먼저 보여주면 "그냥 사전에 없다"는 것처럼 보여서 정작 중복이라는 진짜
+  // 이유를 사용자가 알 수 없고, 중복 하이라이트(dupWords)도 안 뜨게 되어 "중복 처리가 아예
+  // 작동을 안 하는 것" 처럼 보이는 버그가 있었음.
   const dupWords = [...new Set(fails.filter(f => f.kind === 'dup').map(f => f.word))];
   if (dupWords.length) {
     return {
       err: dupWords.map(w => `'${w}'`).join(', ') + '(은)는 이미 보드에서 쓰인 단어예요. 한 단어는 한 번만 쓸 수 있어요.',
       dupWords, // 어디에 이미 쓰였는지 화면에 하이라이트하기 위해 canonical 단어 목록을 같이 넘김
     };
+  }
+  const dictWords = [...new Set(fails.filter(f => f.kind === 'dict').map(f => f.word))];
+  if (dictWords.length) {
+    return { err: dictWords.map(w => `'${w}'`).join(', ') + '(으)로 읽어도 사전에 없는 단어입니다.' };
   }
   const conf = fails.find(f => f.kind === 'conflict');
   if (conf) return { err: conf.msg, conflictTyped: conf.i, word: prefix + typed + suffix, startX: sx, startY: sy };
@@ -1107,8 +1120,10 @@ function updateLeaderboard() {
   for (const c of cells.values()) {
     if (c.captured && c.owner) tally.set(c.owner, (tally.get(c.owner) || 0) + 1);
   }
-  if (tally.size === 0) { leaderboardEl.classList.add('hidden'); return; }
-  const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  // 점수표에는 "지금 접속 중인" 플레이어를 전원 표시함(아직 땅을 못 딴 0점 플레이어도 포함).
+  // 과거에 땅을 땄지만 지금은 접속이 끊긴 플레이어는 목록에서 빠짐.
+  if (onlineIds.size === 0) { leaderboardEl.classList.add('hidden'); return; }
+  const ranked = [...onlineIds].map(id => [id, tally.get(id) || 0]).sort((a, b) => b[1] - a[1]);
   lbListEl.textContent = '';
   // owner(clientId)는 유저가 localStorage를 조작하면 임의 문자열일 수 있으므로
   // innerHTML이 아닌 textContent/DOM API로만 채워 넣어 삽입 공격을 원천 차단
@@ -1167,7 +1182,10 @@ async function boot() {
   db.ref('presence').on('value', snap => {
     const val = snap.val() || {};
     userCount = Math.max(1, Object.keys(val).length);
+    onlineIds = new Set(Object.keys(val));
+    if (clientId) onlineIds.add(clientId); // 프레즌스 기록이 아직 안 됐어도 나 자신은 항상 포함
     updateStats();
+    updateLeaderboard();
     // 다른 유저들의 실시간 선택 칸/입력 상황 갱신 (누구나 중간에 참여해도 바로 보이게)
     livePeers.clear();
     const now = Date.now();
