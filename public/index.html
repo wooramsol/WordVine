@@ -66,11 +66,12 @@
   #leaderboard .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #leaderboard li.me .name { font-weight: 700; }
   #leaderboard .cnt { color: #6b5e3f; font-variant-numeric: tabular-nums; }
-  /* 오른쪽 끝의 작은 점 — 지금 실제로 접속 중인 플레이어인지 표시(초록 = 접속 중,
-     빈 링 = 예전에 땅은 땄지만 지금은 접속 안 함) */
-  #leaderboard .live { width: 7px; height: 7px; border-radius: 50%; flex: none;
-    margin-left: 3px; background: transparent; border: 1.5px solid #d8d2c4; }
-  #leaderboard .live.on { background: #4caf6d; border-color: #4caf6d; }
+  /* 오른쪽 끝의 LIVE 태그 — 지금 실제로 접속 중인 플레이어만 불이 들어오고(초록),
+     예전에 땅은 땄지만 지금은 접속 안 한 플레이어는 꺼진 채(회색)로 표시됨 */
+  #leaderboard .live { flex: none; margin-left: 4px; font-size: 9px; font-weight: 700;
+    letter-spacing: .02em; padding: 2px 5px; border-radius: 8px;
+    background: #eee9dd; color: #b8ae97; }
+  #leaderboard .live.on { background: #dcefdb; color: #2c6e2f; }
 
   /* 칸에 직접 입력: 보이는 입력창/버튼 없음. wordInput은 IME(한글 조합) 지원을 위해
      실제로 존재하지만 화면엔 보이지 않고, 타이핑한 글자는 캔버스 칸에 바로 그려짐. */
@@ -118,7 +119,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.0.1</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.0.2</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -1193,6 +1194,7 @@ function updateLeaderboard() {
     const live = document.createElement('span');
     const isOnline = onlineIds.has(owner);
     live.className = 'live' + (isOnline ? ' on' : '');
+    live.textContent = 'LIVE';
     live.title = isOnline ? '지금 접속 중' : '지금은 접속 안 함';
     li.append(dot, name, cnt, live);
     lbListEl.appendChild(li);
