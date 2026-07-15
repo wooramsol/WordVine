@@ -177,6 +177,20 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>
+// 앱(iOS/Android) 안에서 실행 중일 때만 키보드 위 이전/다음/완료 툴바 숨김.
+// 일반 웹브라우저에서는 window.Capacitor가 없어서 그냥 아무 일도 안 함.
+if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+  const s = document.createElement('script');
+  s.src = 'capacitor-keyboard-plugin.js';
+  s.onload = () => {
+    try {
+      window.Capacitor.Plugins.Keyboard.setAccessoryBarVisible({ isVisible: false }).catch(() => {});
+    } catch (e) {}
+  };
+  document.head.appendChild(s);
+}
+</script>
+<script>
 'use strict';
 // ---------- 상태 ----------
 const cells = new Map();            // "x,y" -> { ch, dirs:[], fresh }
