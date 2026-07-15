@@ -149,7 +149,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.31</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.32</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -834,9 +834,11 @@ if (window.visualViewport) {
     // 값이 더 이상 안 바뀌고 "안정된" 시점에 딱 한 번만 다시 중앙을 맞춘다.
     clearTimeout(vvSettleTimer);
     vvSettleTimer = setTimeout(() => {
+      // 카메라 재배치는 clampCamera()(draw() 안에서 실행됨)가 새 visibleHeight 기준으로
+      // 알아서 처리하므로, 여기서 따로 centerOnSel()을 호출하지 않음 — 그것과 충돌해서
+      // 화면이 위로 쏠려 보이는 문제의 원인이었음
+      draw();
       if (sel) {
-        centerOnSel();
-        ensureVisible();
         positionSelUI();
         positionWordInput(); // 키보드가 열리거나 닫히며 카메라가 재조정된 뒤에도 보이지 않는
                               // wordInput이 실제 칸 위치와 계속 어긋나지 않게 함
@@ -1029,11 +1031,10 @@ function openPopup(cx, cy, px, py) {
   sel = { x: cx, y: cy, dir };
   preview = null;
   wordInput.value = '';
-  // 카메라를 먼저 선택 칸 중심으로 옮긴 다음에 UI(입력창/배지) 위치를 잡아야
-  // 화면이 옮겨진 뒤에도 배지/입력창이 실제 칸 위치와 어긋나지 않음. 단, 웹(비터치)에서는
-  // 20x20 보드가 화면에 이미 다 들어오므로 칸을 고를 때마다 화면이 따라 움직일 필요가
-  // 없어서(오히려 산만함) 모바일에서만 함
-  if (HAS_TOUCH) centerOnSel();
+  // 칸을 선택해도 카메라는 더 이상 그 칸 쪽으로 따라 움직이지 않음 — 보드 전체가 항상
+  // clampCamera()에서 화면(키보드 감안) 중앙에 맞춰지고 있어서, 칸 선택 때마다 또 카메라를
+  // 옮기면 두 중앙정렬 기준이 서로 충돌해 화면이 위로 쏠려 보이는 등 예측 못한 위치로
+  // 튀는 문제가 있었음
   const capturedHere = cells.get(K(cx, cy))?.captured;
   setMsg(capturedHere ? '포획된 영역이라 사용할 수 없어요. 화살표로 다른 칸으로 이동해 보세요.' : '');
   submitEnabled = false;
