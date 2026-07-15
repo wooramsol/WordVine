@@ -149,7 +149,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.32</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.33</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -732,17 +732,14 @@ setInterval(() => {
 }, 120);
 
 // ---------- 뷰 자동 맞춤 ----------
-// 키보드가 열려있는지 여부와 상관없이 원리는 딱 하나: "지금 실제로 보이는 영역
-// (visibleHeight)의 정중앙에 보드를 둔다." 키보드가 닫혀있으면 visibleHeight가 화면
-// 전체 높이와 같아서 자연스럽게 화면 정중앙에 오고, 키보드가 열리면 visibleHeight가
-// 키보드를 뺀 만큼 줄어들어서 자동으로 그 안에서 다시 중앙 정렬되며, PAN_MARGIN만큼의
-// 여백이 위/아래에 고르게 남아 키보드와도 거리가 생김. 기기/브라우저별로 다르게 "추정"할
-// 필요 없이 브라우저가 알려주는 실제 값(visualViewport.height)을 그대로 믿고 쓰면 됨.
+// 키보드가 열리거나 닫힐 때 화면(카메라)이 그때마다 다시 계산되어 움직이면, 보고 있던
+// 화면이 갑자기 위로 튀어 오르는 느낌을 줘서 오히려 산만함. 그래서 visibleHeight는
+// visualViewport(키보드에 반응하는 값)를 쓰지 않고 항상 화면 전체 높이(innerHeight)를
+// 그대로 씀 — 카메라 위치는 키보드 상태와 완전히 무관해지고, 키보드는 그냥 지금 보이는
+// 화면 위에 겹쳐서 뜰 뿐 화면 자체는 그대로 유지됨.
 const HAS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 function visibleHeight() {
-  const vv = window.visualViewport;
-  const vh = vv ? vv.height : innerHeight;
-  return Math.max(vh, 120);
+  return Math.max(innerHeight, 120);
 }
 function targetSelScreenY() {
   return visibleHeight() / 2;
@@ -827,21 +824,17 @@ if (window.visualViewport) {
     // 모바일 키보드가 뜨고 닫힐 때 iOS 등 일부 브라우저는 window resize 이벤트를 안 쏴서
     // 캔버스가 다시 초기화(clear)되지 않고, 그 상태에서 줌/이동을 하면 화면에 이전 프레임의
     // 잔상이 남는 경우가 있음. visualViewport가 바뀔 때마다 캔버스를 완전히 리셋해서 방지.
+    // (카메라 위치 자체는 visibleHeight()가 키보드와 무관하게 항상 innerHeight를 쓰므로
+    // 여기서 전혀 안 움직임 — 키보드는 그냥 화면 위에 겹쳐 뜰 뿐)
     resize();
-    // 키보드가 열리고 닫히는 애니메이션 도중에는 visualViewport.height/offsetTop이 여러 번
-    // 중간값으로 계속 바뀌며 resize 이벤트가 연달아 발생함. 그 중간값 그대로 중앙을 계산하면
-    // 매번 다른(잘못된) 위치로 잡혀서 "칸마다 세로 중앙이 다르게" 보이는 원인이 됨.
-    // 값이 더 이상 안 바뀌고 "안정된" 시점에 딱 한 번만 다시 중앙을 맞춘다.
+    // 키보드가 열리고 닫히는 애니메이션 도중에는 visualViewport.offsetTop이 여러 번
+    // 중간값으로 바뀌며 resize 이벤트가 연달아 발생함. wordInput 위치는 이 offsetTop도
+    // 반영해야 해서(visibleTop 참고), 값이 안정된 시점에 한 번 더 맞춰준다.
     clearTimeout(vvSettleTimer);
     vvSettleTimer = setTimeout(() => {
-      // 카메라 재배치는 clampCamera()(draw() 안에서 실행됨)가 새 visibleHeight 기준으로
-      // 알아서 처리하므로, 여기서 따로 centerOnSel()을 호출하지 않음 — 그것과 충돌해서
-      // 화면이 위로 쏠려 보이는 문제의 원인이었음
-      draw();
       if (sel) {
         positionSelUI();
-        positionWordInput(); // 키보드가 열리거나 닫히며 카메라가 재조정된 뒤에도 보이지 않는
-                              // wordInput이 실제 칸 위치와 계속 어긋나지 않게 함
+        positionWordInput();
       }
     }, 150);
   });
