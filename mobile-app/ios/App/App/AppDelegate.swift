@@ -1,4 +1,5 @@
 import UIKit
+import WebKit
 import Capacitor
 
 @UIApplicationMain
@@ -6,17 +7,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
-        if let bridgeVC = window?.rootViewController as? CAPBridgeViewController {
-            bridgeVC.webView?.hideKeyboardAccessoryBar()
-            #if DEBUG
-            if #available(iOS 16.4, *) {
+    // 웹뷰 인스턴스가 아직 생성/할당되기 전이어도(런치 타이밍 이슈 방지) 항상
+    // 적용되도록, 인스턴스 없이 클래스 레벨 스위즐만 먼저 강제 실행.
+    private func applyWebViewCustomizations() {
+        _ = WKWebView.hideAccessoryBarOnce
+        #if DEBUG
+        if #available(iOS 16.4, *) {
+            if let bridgeVC = window?.rootViewController as? CAPBridgeViewController {
                 bridgeVC.webView?.isInspectable = true
             }
-            #endif
         }
+        #endif
+    }
+
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Override point for customization after application launch.
+        applyWebViewCustomizations()
         return true
+    }
+
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        // launch 시점에 rootViewController/webView가 아직 안 만들어졌을 수 있어
+        // isInspectable 등 인스턴스 의존적인 설정은 한 번 더 시도.
+        applyWebViewCustomizations()
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -31,10 +44,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationWillEnterForeground(_ application: UIApplication) {
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
-    }
-
-    func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
