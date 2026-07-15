@@ -149,7 +149,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.33</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.34</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -1042,8 +1042,12 @@ function openPopup(cx, cy, px, py) {
   // 없던 상태였다면 이 호출은 아무 영향 없음) 바로 focus()를 걸어서, 매번 "새로운" 포커스
   // 전환이 확실히 일어나게 함 — iOS에서 키보드가 뜨려면 focus()가 사용자 제스처 처리 도중
   // 동기적으로 호출돼야 하므로 setTimeout/rAF 없이 같은 틱에서 바로 실행한다.
+  // preventScroll:true — 안 붙이면 브라우저가 "포커스된 입력칸이 키보드에 가려 안 보인다"고
+  // 판단해서 화면(visual viewport)을 자기 마음대로 위로 스크롤해버림. 특히 아래쪽 줄일수록
+  // 더 많이 가려진다고 보고 더 세게 스크롤해서 "칸을 아래로 고를수록 대지가 점점 위로
+  // 튀어 올라가는" 것처럼 보였음. 이 옵션으로 그 자동 스크롤 자체를 막음.
   wordInput.blur();
-  wordInput.focus();
+  wordInput.focus({ preventScroll: true });
   draw();
   broadcastTyping();
 }
@@ -1148,7 +1152,7 @@ function toggleDir() {
 // 모바일은 물리 키보드가 없어 Tab을 누를 수 없으므로, 배지를 탭해서도 가로/세로를 바꿀 수 있게 함
 modeBadge.addEventListener('click', () => {
   toggleDir();
-  wordInput.focus(); // 배지를 탭하는 동안 포커스가 빠졌다면 다시 입력 가능하도록 복구
+  wordInput.focus({ preventScroll: true }); // 배지를 탭하는 동안 포커스가 빠졌다면 다시 입력 가능하도록 복구
 });
 
 const getLocalCell = (x, y) => {
