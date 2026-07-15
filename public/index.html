@@ -144,9 +144,52 @@
     #toast { bottom: auto; top: calc(92px + env(safe-area-inset-top, 0px)); }
     #leaderboard { padding: 8px 12px; max-width: 96vw; }
   }
+
+  #inAppBanner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: none; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top, 0px));
+    background: #2c2c2c; color: #fff; font-size: 13px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  }
+  #inAppBanner span { line-height: 1.4; }
+  #inAppBanner button {
+    flex-shrink: 0; background: #ffd400; color: #1a1a1a; border: none;
+    border-radius: 16px; padding: 8px 14px; font-size: 13px; font-weight: 700;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
 </style>
 </head>
 <body>
+<div id="inAppBanner"><span>카카오톡 등 인앱 브라우저에서는 일부 기능이 불안정할 수 있어요.</span><button id="openInBrowserBtn" type="button">브라우저로 열기</button></div>
+<script>
+(function () {
+  var ua = navigator.userAgent || '';
+  var isKakao = /KAKAOTALK/i.test(ua);
+  var isNaver = /NAVER\(inapp/i.test(ua);
+  var isFacebook = /FBAN|FBAV/i.test(ua);
+  var isInstagram = /Instagram/i.test(ua);
+  var isLine = /\bLine\//.test(ua);
+  var isInApp = isKakao || isNaver || isFacebook || isInstagram || isLine;
+
+  // 우리가 만든 네이티브 앱(App Store/Play Store) 안에서는 뜨면 안 됨.
+  var isOurApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  if (isInApp && !isOurApp) {
+    var banner = document.getElementById('inAppBanner');
+    var btn = document.getElementById('openInBrowserBtn');
+    banner.style.display = 'flex';
+    btn.addEventListener('click', function () {
+      if (isKakao) {
+        // 카카오톡 인앱 브라우저는 이 스킴으로 기본 브라우저에서 바로 열어줌
+        location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(location.href);
+      } else {
+        alert('우측 상단 메뉴(⋮ 또는 …)에서 "다른 브라우저로 열기"를 선택해주세요.');
+      }
+    });
+  }
+})();
+</script>
 <canvas id="board"></canvas>
 
 <div id="brand">낱말바둑? <span id="verTag">v1.1.38</span></div>
