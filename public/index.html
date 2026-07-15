@@ -141,7 +141,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.17</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.18</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -526,13 +526,16 @@ function draw() {
   for (let y = gy0; y <= gy1; y++) { const [, sy] = worldToScreen(0, y); ctx.moveTo(boardSx0, sy); ctx.lineTo(boardSx1, sy); }
   ctx.stroke();
 
-  // 선택 칸의 진행 방향(가로/세로) 전체 줄을 내 색으로 은은하게 하이라이트 (입력 가능한 칸일 때만)
+  // 선택 칸부터 "실제로 입력이 이어지는 방향"으로만 은은하게 하이라이트(입력 가능한 칸일
+  // 때만). 예전엔 줄 전체(반대쪽인 왼쪽/위쪽 포함)를 다 칠해서, 마치 그쪽으로도 거꾸로
+  // 입력할 수 있는 것처럼 오해를 줬음 — 실제로 타이핑은 항상 선택 칸에서 오른쪽(가로) 또는
+  // 아래쪽(세로)으로만 진행되므로, 그 방향/그 지점부터 보드 끝까지만 칠함
   const myHueVal = myHue();
   if (sel && dirAvailable(sel.x, sel.y, sel.dir)) {
     const [selSx, selSy] = worldToScreen(sel.x, sel.y);
     ctx.fillStyle = `hsla(${myHueVal}, 60%, 50%, .08)`;
-    if (sel.dir === 'h') ctx.fillRect(0, selSy, innerWidth, cellSize);
-    else ctx.fillRect(selSx, 0, cellSize, innerHeight);
+    if (sel.dir === 'h') ctx.fillRect(selSx, selSy, boardSx1 - selSx, cellSize);
+    else ctx.fillRect(selSx, selSy, cellSize, boardSy1 - selSy);
   }
 
   ctx.textAlign = 'center';
