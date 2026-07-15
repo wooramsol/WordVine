@@ -138,7 +138,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.5</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.6</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -343,7 +343,7 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
   if (conf) return { err: conf.msg, conflictTyped: conf.i, word: prefix + typed + suffix, startX: sx, startY: sy };
   const long = fails.find(f => f.kind === 'long');
   if (long) return { err: long.msg };
-  return { err: '두 글자 이상 입력하세요.' };
+  return { err: '두 글자 이상 입력하세요.', tooShort: true }; // 에러가 아니라 '아직 입력 중'일 뿐이므로 배지를 빨간색으로 만들지 않음
 }
 
 // ---------- 땅따먹기: 완전히 둘러싸인 빈 칸 포획(flood-fill) ----------
@@ -974,9 +974,12 @@ function broadcastTyping() {
 }
 // 텍스트 상자가 없으므로 메시지는 배지 색깔(초록=성공/빨강=에러)로만 표시하고,
 // 실제 문구는 toast로 짧게 띄운다.
-function setMsg(text, ok) {
+function setMsg(text, ok, neutral) {
   modeBadge.classList.toggle('ok', !!ok);
-  modeBadge.classList.toggle('err', !ok && !!text);
+  // neutral: 진짜 에러가 아니라 "아직 입력 중"인 상태(예: 아직 한 글자뿐이라 길이가 모자람)일 때
+  // 빨간색(err)으로 보여주면 아무것도 안 했는데 에러가 난 것처럼 보여서 혼란스러움 — 이때는
+  // 배지를 기본 색 그대로 두고, 안내 문구는 title(툴팁)로만 남겨둠
+  modeBadge.classList.toggle('err', !ok && !neutral && !!text);
   if (text) modeBadge.title = text;
   else modeBadge.removeAttribute('title');
 }
@@ -1099,7 +1102,7 @@ function checkPreview() {
     preview = r.word
       ? { startX: r.startX, startY: r.startY, word: r.word, conflictTyped: r.conflictTyped ?? -1, typedFrom, typedLen: typed.length }
       : { startX: sel.x, startY: sel.y, word: typed, conflictTyped: -1, typedFrom: 0, typedLen: typed.length };
-    setMsg(r.err);
+    setMsg(r.err, false, r.tooShort);
     submitEnabled = false;
     // 이미 쓰인 단어라면, 그 단어가 실제로 보드 어디에 있는지 찾아서 하이라이트 대상으로 등록
     if (r.dupWords && r.dupWords.length) {
