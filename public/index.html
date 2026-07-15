@@ -17,10 +17,29 @@
     border-radius: 20px; padding: 8px 14px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
     font-size: 15px; font-weight: 700; color: #1a1a1a; cursor: pointer;
     user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  /* 배포할 때마다 이 버전 번호를 올림(예: v1.0.0 -> v1.0.1) — 지금 보고 있는 화면이
-     최신 배포와 같은 버전인지 한눈에 확인할 수 있게 타이틀 옆에 작게 표시 */
-  #verTag { font-size: 10px; font-weight: 400; color: #a89a78; vertical-align: middle; }
+  /* 타이틀 옆 도움말 아이콘 — 눌러서(툴팁처럼) 안내 패널을 여는 트리거임을 보여줌 */
+  #brandHelpIcon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #e5e0d3; color: #8a7a4f; font-size: 11px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  /* 배포할 때마다 이 버전 번호를 올림(예: v1.0.0 -> v1.0.1) — 화면 우측 하단에
+     작게 표시해서 지금 보고 있는 화면이 최신 배포와 같은 버전인지 확인 가능 */
+  #verTagBottom {
+    position: fixed; right: 12px; z-index: 5;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    font-size: 10px; color: #a89a78; user-select: none; -webkit-user-select: none;
+  }
+  #footerCredit {
+    position: fixed; left: 12px; z-index: 5;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    font-size: 11px;
+  }
+  #footerCredit a { color: #a08c5a; text-decoration: none; }
+  #footerCredit a:hover { text-decoration: underline; }
   #infoPanel {
     /* 최상단 레이어 — wordInput/modeBadge/toast 등 다른 모든 UI(z-index 30 이하)보다
        위에 오도록 해서, 선택된 칸의 배지 등과 겹쳐 보이지 않게 함 */
@@ -41,9 +60,6 @@
     cursor: pointer;
   }
   #resetBoardBtn:hover { background: #f6d6d6; }
-  #credit { margin-top: 8px; font-size: 12px; }
-  #credit a { color: #a08c5a; text-decoration: none; }
-  #credit a:hover { text-decoration: underline; }
   #topRight { position: fixed; top: 12px; right: 12px; z-index: 10; display: flex; gap: 6px; }
   #userCountTag { font-size: 12px; padding: 6px 10px; border-radius: 20px;
     background: #e5e0d3; color: #777; white-space: nowrap;
@@ -211,7 +227,7 @@
 </script>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.38</span></div>
+<div id="brand">낱말바둑<span id="brandHelpIcon">?</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -219,7 +235,6 @@
   칸을 클릭해 낱말을 이어가 보세요.<br>
   <span style="color:#8a7a4f">방향키로 칸 이동, Tab으로 가로/세로 전환</span></div>
   <button id="resetBoardBtn" type="button">전체 낱말 초기화 (테스트용)</button>
-  <div id="credit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
 </div>
 <div id="topRight">
   <div id="userCountTag"><span id="userCountDot"></span><span id="userCountText">현재접속자 1명</span></div>
@@ -227,6 +242,8 @@
 <div id="leaderboard" class="hidden">
   <ol id="lbList"></ol>
 </div>
+<div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
+<div id="verTagBottom">v1.1.39</div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
