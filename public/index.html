@@ -49,25 +49,31 @@
     background: #e5e0d3; color: #777; white-space: nowrap; }
   #userCountTag.on { background: #dcefdb; color: #2c6e2f; }
 
+  /* 화면 중앙 위쪽에 반투명(opacity) 박스로 표시 — 1~5등만, 순위가 높을수록 글자를
+     크게 해서 한눈에 순위 차이가 보이게 함 */
   #leaderboard {
-    position: fixed; top: 46px; right: 12px; z-index: 10;
-    background: rgba(255,255,255,.95); border: 1px solid #d8d2c4;
-    border-radius: 12px; padding: 10px 14px; box-shadow: 0 2px 10px rgba(0,0,0,.1);
-    font-size: 12px; color: #444; min-width: 150px; max-width: 220px;
-    /* 접속자 전원을 표시하면서 인원이 많아지거나 창 높이가 줄어들면 화면 밖으로 잘릴 수
-       있으므로, 남는 높이만큼만 차지하고 넘치면 패널 안에서 스크롤되게 함 */
-    max-height: calc(100vh - 60px); overflow-y: auto;
+    /* 브랜드 로고/접속자 태그와 같은 줄(top:12px)에 놓이면 화면이 좁을 때 서로 겹칠 수
+       있어서, 그 아래 줄에 화면 중앙 위쪽으로 배치함 */
+    position: fixed; top: 54px; left: 50%; transform: translateX(-50%); z-index: 10;
+    background: rgba(255,255,255,.62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(216,210,196,.75); border-radius: 14px; padding: 10px 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+    font-size: 12px; color: #444;
+    max-width: min(94vw, 340px);
+    max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden;
   }
   #leaderboard.hidden { display: none; }
   #leaderboard ol { list-style: none; counter-reset: lb; }
-  #leaderboard li { counter-increment: lb; display: flex; align-items: center; gap: 6px;
-    padding: 2px 0; }
-  #leaderboard li::before { content: counter(lb) "등"; width: 26px; color: #9a927d; font-size: 11px; }
-  #leaderboard .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  #leaderboard .name { flex: 1; min-width: 0; overflow-wrap: break-word; }
+  #leaderboard li { counter-increment: lb; display: flex; align-items: center; gap: 0.5em;
+    padding: 2px 0; font-size: 12px; white-space: nowrap; }
+  #leaderboard li::before { content: counter(lb) "등"; width: 1.9em; color: #9a927d;
+    font-size: 0.85em; flex: none; }
+  #leaderboard .dot { width: 0.6em; height: 0.6em; border-radius: 50%; flex: none; }
+  /* 과일 이름은 항상 한 줄로 — 줄바꿈되면 다른 항목과 줄이 겹쳐 보여 지저분함 */
+  #leaderboard .name { white-space: nowrap; }
   #leaderboard li.me .name { font-weight: 700; }
   #leaderboard .cnt { color: #6b5e3f; font-variant-numeric: tabular-nums;
-    font-size: 14px; font-weight: 800; margin-left: 2px; display: inline-block; }
+    font-size: 1.15em; font-weight: 800; margin-left: 2px; display: inline-block; }
   #leaderboard .cnt.bump { animation: scoreBump .6s ease; }
   @keyframes scoreBump {
     0% { transform: scale(1); color: #6b5e3f; }
@@ -119,14 +125,14 @@
   @media (max-width: 640px) {
     /* 주소창/노치 등 모바일 상단 UI에 가려 잘리지 않도록 더 아래로, safe-area까지 고려 */
     #toast { bottom: auto; top: calc(92px + env(safe-area-inset-top, 0px)); }
-    #leaderboard { font-size: 11px; padding: 8px 10px; min-width: 120px; max-width: 160px; }
+    #leaderboard { padding: 8px 12px; max-width: 96vw; }
   }
 </style>
 </head>
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.14</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.15</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -1321,16 +1327,21 @@ function updateLeaderboard() {
   // 전원(인원 제한 없이) 점수 순으로 보여줌. 대신 과일/색이 8종뿐이라 접속자가 많아지면
   // 서로 다른 사람이 같은 과일로 겹쳐 보일 수 있는데, 그중 지금 실제로 접속 중인 사람은
   // 오른쪽에 작은 점(초록 = 접속 중)으로 표시해서 최소한 "지금 활동 중인지"는 구분되게 함
-  const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]);
+  // 화면 중앙 위쪽 박스에는 자리가 한정적이므로 상위 5명까지만 표시함
+  const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
   lbListEl.textContent = '';
+  // 1등부터 아래로 갈수록 글자 크기가 작아지게 — li의 font-size를 기준(em)으로 두면
+  // 안의 이름/점수/등수 등이 전부 비례해서 같이 작아짐
+  const RANK_FONT_SIZES = [17, 15, 13.5, 12.5, 11.5];
   // 과일이 8종뿐이라 서로 다른 사람이 같은 과일로 겹칠 수 있음(8명을 넘어가면 반드시 생김).
   // 점수 순으로 훑으면서 같은 과일 이름이 이미 나온 적 있으면 "사과 2", "사과 3"처럼 번호를
   // 붙여서 최소한 화면상 이름은 겹치지 않게 함(색 자체는 여전히 같을 수 있음)
   const nameSeen = new Map();
   // owner(clientId)는 유저가 localStorage를 조작하면 임의 문자열일 수 있으므로
   // innerHTML이 아닌 textContent/DOM API로만 채워 넣어 삽입 공격을 원천 차단
-  for (const [owner, count] of ranked) {
+  ranked.forEach(([owner, count], i) => {
     const li = document.createElement('li');
+    li.style.fontSize = (RANK_FONT_SIZES[i] || RANK_FONT_SIZES[RANK_FONT_SIZES.length - 1]) + 'px';
     const hue = ownerHue(owner);
     if (owner === clientId) li.className = 'me';
     const dot = document.createElement('span');
@@ -1359,7 +1370,7 @@ function updateLeaderboard() {
     live.title = isOnline ? '지금 접속 중' : '지금은 접속 안 함';
     li.append(dot, name, cnt, live);
     lbListEl.appendChild(li);
-  }
+  });
   leaderboardEl.classList.remove('hidden');
 }
 
