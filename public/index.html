@@ -179,12 +179,14 @@
 
   if (isKakao) {
     // 카카오톡 공식 스킴: 사용자 조작 없이 바로 기본 브라우저로 이동
+    window.__wvExitScreen = true;
     location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
     return;
   }
 
   if (isLine) {
     // 라인 공식 파라미터: 바로 기본 브라우저로 이동
+    window.__wvExitScreen = true;
     location.href = url + (url.indexOf('?') !== -1 ? '&' : '?') + 'openExternalBrowser=1';
     return;
   }
@@ -192,6 +194,7 @@
   if (isOtherInApp) {
     if (isAndroid) {
       // 안드로이드는 인텐트 스킴으로 크롬을 바로 강제 실행 가능
+      window.__wvExitScreen = true;
       var target = url.replace(/^https?:\/\//i, '');
       location.href = 'intent://' + target + '#Intent;scheme=https;package=com.android.chrome;end';
       return;
@@ -200,6 +203,9 @@
       // iOS는 애플 정책상 앱이 JS로 사파리를 강제 실행하는 게 불가능해서
       // (카카오톡/라인처럼 그 앱이 직접 지원하는 스킴이 있는 경우만 가능),
       // 클립보드 복사 같은 우회 대신 그냥 우측 상단 메뉴로 열라고 안내함.
+      // 이 화면 위에 안내 패널/리더보드 같은 게임 UI가 겹쳐 보이지 않도록
+      // window.__wvExitScreen 플래그를 세워서 뒤에 파싱되는 스크립트가 참고하게 함.
+      window.__wvExitScreen = true;
       document.body.innerHTML =
         '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;background:#f5f1e8;font-family:inherit;">' +
         '<div style="font-size:18px;font-weight:700;margin-bottom:12px;color:#1a1a1a;">브라우저에서 열어야 플레이할 수 있어요</div>' +
@@ -227,7 +233,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.45</div>
+<div id="verTagBottom">v1.1.46</div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
@@ -1421,7 +1427,8 @@ resetBoardBtn.onclick = () => {
   closePopup();
   showToast('보드를 초기화했어요.');
 };
-infoPanel.classList.remove('hidden'); // 처음 들어오면 기기와 상관없이 기본으로 열어서 보여줌
+// 인앱 브라우저 탈출 안내 화면이 떠 있는 중이면 안내 패널을 열지 않음
+if (!window.__wvExitScreen) infoPanel.classList.remove('hidden'); // 처음 들어오면 기기와 상관없이 기본으로 열어서 보여줌
 
 // ---------- Firebase 실시간 동기화 ----------
 const userCountTagEl = document.getElementById('userCountTag');
@@ -1457,6 +1464,8 @@ function animateScore(el, from, to) {
 }
 
 function updateLeaderboard() {
+  // 인앱 브라우저 탈출 안내 화면이 떠 있는 중이면 리더보드도 표시하지 않음
+  if (window.__wvExitScreen) { leaderboardEl.classList.add('hidden'); return; }
   const tally = new Map();
   for (const c of cells.values()) {
     if (c.captured && c.owner) tally.set(c.owner, (tally.get(c.owner) || 0) + 1);
