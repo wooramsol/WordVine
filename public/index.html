@@ -137,7 +137,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.9</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.10</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -620,12 +620,17 @@ function draw() {
     const nx = sel.x + (sel.dir === 'h' ? 1 : 0);
     const ny = sel.y + (sel.dir === 'v' ? 1 : 0);
     const [nsx, nsy] = worldToScreen(nx, ny);
+    const ncx = nsx + cellSize / 2;
     ctx.save();
-    ctx.font = Math.floor(cellSize * 0.5) + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
-    ctx.fillStyle = `hsl(${myHueVal}, 65%, 40%)`;
     ctx.textAlign = 'center';
+    ctx.fillStyle = `hsl(${myHueVal}, 65%, 40%)`;
+    // Tab 힌트: 화살표 위쪽에 작게
+    ctx.font = Math.floor(cellSize * 0.2) + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
     ctx.textBaseline = 'middle';
-    ctx.fillText(sel.dir === 'h' ? '→' : '↓', nsx + cellSize / 2, nsy + cellSize / 2 + 1);
+    ctx.fillText('Tab', ncx, nsy + cellSize * 0.26);
+    // 방향 화살표: 더 크게, 칸 중앙보다 살짝 아래
+    ctx.font = Math.floor(cellSize * 0.62) + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+    ctx.fillText(sel.dir === 'h' ? '→' : '↓', ncx, nsy + cellSize * 0.64);
     ctx.restore();
   }
 
