@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">낱말바둑</string>
+    <string name="title_activity_main">낱말바둑</string>
+    <string name="package_name">com.wooramsol.wordvine</string>
+    <string name="custom_url_scheme">com.wooramsol.wordvine</string>
+</resources>
