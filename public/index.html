@@ -149,7 +149,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.29</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.30</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -518,7 +518,7 @@ function dirAvailable(x, y, dir) {
 // 스냅되며 아래로 드래그해도 도로 튕겨 돌아오는 문제가 있었음
 function clampCamera() {
   const vw = innerWidth, vh = visibleHeight();
-  const PAN_MARGIN_Y = PAN_MARGIN;
+  const PAN_MARGIN_Y = IS_PHONE ? 4 : PAN_MARGIN; // 모바일 세로는 6칸에서 2칸 줄여 4칸(좌우는 2칸)
   const minX = BOARD_MIN - PAN_MARGIN, maxWorldX = BOARD_MAX + 1 + PAN_MARGIN;
   const minY = BOARD_MIN - PAN_MARGIN_Y, maxWorldY = BOARD_MAX + 1 + PAN_MARGIN_Y;
   const spanX = maxWorldX - minX, spanY = maxWorldY - minY;
