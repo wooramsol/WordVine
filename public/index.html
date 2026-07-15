@@ -138,7 +138,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.6</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.7</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -925,7 +925,7 @@ function autoDetectDir(cx, cy) {
 }
 
 function openPopup(cx, cy, px, py) {
-  if (!inBounds(cx, cy)) { showToast('보드 범위(30×30)를 벗어났어요.'); return; }
+  if (!inBounds(cx, cy)) return; // 범위 밖 클릭은 그냥 무시(별도 안내 없음)
   const dir = autoDetectDir(cx, cy);
   sel = { x: cx, y: cy, dir };
   preview = null;
