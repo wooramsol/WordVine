@@ -149,7 +149,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.25</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.26</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -1544,6 +1544,25 @@ async function boot() {
 boot();
 
 resize();
+
+// 모바일: "게임을 시작하자마자" 곧바로 키보드가 뜨도록, 아직 칸을 하나도 선택하지 않은
+// 상태에서 화면에 처음 손을 대는 순간(touchstart) 보드 중앙 칸을 임시로 선택해 키보드부터
+// 띄움 — 브라우저 정책상 사용자 제스처 없이(페이지 로드만으로) 키보드를 열 수는 없어서,
+// "첫 제스처"를 붙잡아 최대한 빠르게 열리게 하는 방식. 실제로 손가락을 뗀 위치(진짜로 누른
+// 칸)는 캔버스 자체의 touchend 처리가 뒤이어 그 칸으로 다시 선택해서 덮어쓰므로, 결과적으로
+// "누른 칸은 정확하게, 키보드는 최대한 빠르게" 둘 다 만족함.
+if (HAS_TOUCH) {
+  const openKeyboardOnFirstTouch = () => {
+    if (!sel) {
+      const cx = Math.floor((BOARD_MIN + BOARD_MAX) / 2);
+      const cy = cx; // 정사각형 보드라 x/y 중앙이 같음
+      const [sx, sy] = worldToScreen(cx, cy);
+      openPopup(cx, cy, sx + cellSize / 2, sy + cellSize / 2);
+    }
+  };
+  document.addEventListener('touchstart', openKeyboardOnFirstTouch, { once: true, passive: true });
+  document.addEventListener('pointerdown', openKeyboardOnFirstTouch, { once: true });
+}
 </script>
 </body>
 </html>
