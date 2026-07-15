@@ -149,7 +149,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.27</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.28</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -519,7 +519,7 @@ function dirAvailable(x, y, dir) {
 // 가로보다 훨씬 넉넉하게 잡아, 어떤 줄이든 드래그로 안전 영역까지 끌어올릴 수 있게 함
 function clampCamera() {
   const vw = innerWidth, vh = visibleHeight();
-  const PAN_MARGIN_Y = IS_PHONE ? Math.ceil((BOARD_MAX + 1 - BOARD_MIN) * 0.5) : PAN_MARGIN;
+  const PAN_MARGIN_Y = IS_PHONE ? PAN_MARGIN + 3 : PAN_MARGIN; // 키보드 감안 여유는 살짝만 더
   const minX = BOARD_MIN - PAN_MARGIN, maxWorldX = BOARD_MAX + 1 + PAN_MARGIN;
   const minY = BOARD_MIN - PAN_MARGIN_Y, maxWorldY = BOARD_MAX + 1 + PAN_MARGIN_Y;
   const spanX = maxWorldX - minX, spanY = maxWorldY - minY;
