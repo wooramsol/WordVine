@@ -233,7 +233,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.46</div>
+<div id="verTagBottom">v1.1.47</div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
@@ -1405,6 +1405,45 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toast.style.display = 'none', 2500);
 }
 
+// ---------- 참가자 입장 알림음 ----------
+let audioCtx = null;
+function ensureAudioCtx() {
+  if (audioCtx) return audioCtx;
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+  catch (e) { return null; }
+  return audioCtx;
+}
+// 모바일 브라우저(iOS Safari/웹뷰 포함)는 사용자가 화면을 최소 한 번 직접
+// 조작(탭/클릭/키입력)하기 전에는 오디오 재생을 막아둠 — 그래서 페이지의
+// 첫 상호작용 시점에 맞춰 AudioContext를 미리 "깨워"두면, 그 이후로는
+// 상호작용 없이도(다른 사람이 들어왔을 때) 알림음이 재생됨
+function unlockAudioOnce() {
+  const ctx = ensureAudioCtx();
+  if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+}
+window.addEventListener('pointerdown', unlockAudioOnce, { once: true, passive: true });
+window.addEventListener('keydown', unlockAudioOnce, { once: true });
+
+function playJoinDing() {
+  const ctx = ensureAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  const now = ctx.currentTime;
+  // "띵동" 느낌으로 짧은 두 음을 이어서 재생
+  [[880, 0], [1318.5, 0.12]].forEach(([freq, delay]) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, now + delay);
+    gain.gain.linearRampToValueAtTime(0.2, now + delay + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.35);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now + delay);
+    osc.stop(now + delay + 0.4);
+  });
+}
+
 // ---------- 안내 패널 ----------
 const brand = document.getElementById('brand');
 const infoPanel = document.getElementById('infoPanel');
@@ -1563,11 +1602,23 @@ async function boot() {
     }
   });
 
+  let presenceFirstSync = true;
   db.ref('presence').on('value', snap => {
     const val = snap.val() || {};
-    userCount = Math.max(1, Object.keys(val).length);
-    onlineIds = new Set(Object.keys(val));
-    if (clientId) onlineIds.add(clientId); // 프레즌스 기록이 아직 안 됐어도 나 자신은 항상 포함
+    const newIds = new Set(Object.keys(val));
+    if (clientId) newIds.add(clientId); // 프레즌스 기록이 아직 안 됐어도 나 자신은 항상 포함
+
+    // 새로 접속한 사람이 있으면 알림음 재생. 단, 내가 막 페이지를 열었을 때의
+    // 첫 스냅샷(이미 접속해 있던 사람들이 전부 "새로" 보임)과 나 자신의 접속은 제외
+    if (!presenceFirstSync) {
+      for (const id of newIds) {
+        if (id !== clientId && !onlineIds.has(id)) { playJoinDing(); break; }
+      }
+    }
+    presenceFirstSync = false;
+
+    userCount = Math.max(1, newIds.size);
+    onlineIds = newIds;
     updateStats();
     updateLeaderboard();
     // 다른 유저들의 실시간 선택 칸/입력 상황 갱신 (누구나 중간에 참여해도 바로 보이게)
