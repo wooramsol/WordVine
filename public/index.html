@@ -141,7 +141,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.20</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.21</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -364,11 +364,12 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
 // newlyPlacedCoords: 이번에 새로 놓인 글자 칸 좌표들 — 이 칸들의 인접 빈 칸에서만 탐색 시작
 // 보드 경계도 벽으로 치기 때문에(가장자리에 붙어 나머지 삼면만 글자로 막아도 포획 인정),
 // "가운데에 글자 하나만 놓아도 남은 보드 전체가 포획되는" 것을 막을 안전장치가 필요함.
-// 영역의 가로/세로 "폭"(bounding box)이 MAX_SPAN을 넘으면 "포획 아님"으로 처리 —
-// 30x30 보드 기준으로 절반 정도(15칸)까지는 허용하고, 그보다 넓게 뻗어나가면(=사실상
-// 거의 보드 전체를 둘러싼 셈이라 우연/실수일 가능성이 높음) 포획하지 않음
+// 영역의 가로/세로 "폭"(bounding box)이 MAX_SPAN을 넘으면 "포획 아님"으로 처리 — 원래
+// 15칸(보드 절반)으로 뒀었는데, 실제로는 정상적으로 다 막힌(가장자리 벽 포함) 큰 영역도
+// 종종 막혀서 25칸으로 완화함. 그래도 여전히 "보드 전체(30칸)"보다는 작게 제한돼서
+// 거의 전체를 한 번에 쓸어가는 극단적인 경우는 계속 막힘
 function findCapturedRegions(getCell, K, newlyPlacedCoords) {
-  const MAX_SPAN = 15; // 영역의 가로 또는 세로 폭이 이 칸 수를 넘으면 "포획 아님"
+  const MAX_SPAN = 25; // 영역의 가로 또는 세로 폭이 이 칸 수를 넘으면 "포획 아님"
   const globalVisited = new Set();
   const captured = [];
   const NEI = (cx, cy) => [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
