@@ -149,7 +149,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.23</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.24</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -1026,8 +1026,10 @@ function openPopup(cx, cy, px, py) {
   preview = null;
   wordInput.value = '';
   // 카메라를 먼저 선택 칸 중심으로 옮긴 다음에 UI(입력창/배지) 위치를 잡아야
-  // 화면이 옮겨진 뒤에도 배지/입력창이 실제 칸 위치와 어긋나지 않음
-  centerOnSel();
+  // 화면이 옮겨진 뒤에도 배지/입력창이 실제 칸 위치와 어긋나지 않음. 단, 웹(비터치)에서는
+  // 20x20 보드가 화면에 이미 다 들어오므로 칸을 고를 때마다 화면이 따라 움직일 필요가
+  // 없어서(오히려 산만함) 모바일에서만 함
+  if (HAS_TOUCH) centerOnSel();
   const capturedHere = cells.get(K(cx, cy))?.captured;
   setMsg(capturedHere ? '포획된 영역이라 사용할 수 없어요. 화살표로 다른 칸으로 이동해 보세요.' : '');
   submitEnabled = false;
@@ -1213,7 +1215,10 @@ function checkPreview() {
       if (!dupHighlight.length) dupHighlight = null;
     }
   }
-  ensureVisible();
+  // 타이핑하면서 미리보기가 화면 밖으로 나가면 자동으로 카메라를 옮기는 것도 모바일 전용 —
+  // 웹에서는 20x20 보드가 항상 한 화면에 다 보이므로 이 자동 이동이 필요 없고, 그냥 다시 그림
+  if (HAS_TOUCH) ensureVisible();
+  else draw();
 }
 
 // 배치: RTDB 트랜잭션 (DB의 최신 상태 기준으로 재검증 → 원자적 반영)
