@@ -126,7 +126,7 @@
 <body>
 <canvas id="board"></canvas>
 
-<div id="brand">낱말바둑? <span id="verTag">v1.1.11</span></div>
+<div id="brand">낱말바둑? <span id="verTag">v1.1.12</span></div>
 <div id="infoPanel" class="hidden">
   <b>낱말바둑</b>
   <div>실시간으로 함께 두는 낱말바둑.<br>
@@ -609,17 +609,19 @@ function draw() {
     const ny = sel.y + (sel.dir === 'v' ? 1 : 0);
     const [nsx, nsy] = worldToScreen(nx, ny);
     const ncx = nsx + cellSize / 2;
+    const [ssx, ssy] = worldToScreen(sel.x, sel.y);
+    const tabCx = ssx + cellSize / 2; // 선택 칸 윗변의 가로 중앙
     ctx.save();
     ctx.textAlign = 'center';
-    // Tab 힌트: 화살표 위쪽에 알약(태그) 모양 배경 + 텍스트로 눈에 잘 띄게
+    // Tab 힌트: 선택 칸 "윗변" 중앙에 걸치도록(세로 중심을 윗변 라인에 맞춤) 알약(태그) 배경 + 텍스트
     const tabFontSize = Math.max(10, Math.floor(cellSize * 0.2));
     ctx.font = `700 ${tabFontSize}px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
     const tabLabel = 'Tab';
     const tabTextW = ctx.measureText(tabLabel).width;
     const tabPadX = tabFontSize * 0.55, tabPadY = tabFontSize * 0.42;
     const tabW = tabTextW + tabPadX * 2, tabH = tabFontSize + tabPadY * 2;
-    const tabCy = nsy + cellSize * 0.22;
-    const tabX = ncx - tabW / 2, tabY = tabCy - tabH / 2;
+    const tabCy = ssy; // 칸 윗변 라인에 세로 중심을 맞춰 절반씩 걸치게
+    const tabX = tabCx - tabW / 2, tabY = tabCy - tabH / 2;
     const tabR = tabH / 2;
     ctx.beginPath();
     ctx.moveTo(tabX + tabR, tabY);
@@ -632,8 +634,8 @@ function draw() {
     ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.textBaseline = 'middle';
-    ctx.fillText(tabLabel, ncx, tabCy + 1);
-    // 방향 화살표: 더 크게, 칸 중앙보다 살짝 아래
+    ctx.fillText(tabLabel, tabCx, tabCy + 1);
+    // 방향 화살표: 더 크게, 다음 입력 칸 중앙보다 살짝 아래
     ctx.fillStyle = `hsl(${myHueVal}, 65%, 40%)`;
     ctx.font = Math.floor(cellSize * 0.62) + 'px "Apple SD Gothic Neo","Malgun Gothic",sans-serif';
     ctx.fillText(sel.dir === 'h' ? '→' : '↓', ncx, nsy + cellSize * 0.64);
