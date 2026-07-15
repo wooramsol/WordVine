@@ -233,7 +233,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.48</div>
+<div id="verTagBottom">v1.1.49</div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
@@ -260,18 +260,23 @@ const inBounds = (x, y) => x >= BOARD_MIN && x <= BOARD_MAX && y >= BOARD_MIN &&
 const OUT_OF_BOUNDS_WALL = { ch: null, dirs: [], captured: true, owner: null };
 const PAN_MARGIN_X = 1; // 보드 경계 밖 좌우로 카메라를 옮길 수 있는 여유 칸 수
 const PAN_MARGIN_Y = 2; // 보드 경계 밖 위아래로 카메라를 옮길 수 있는 여유 칸 수(키보드와 거리 확보용)
-const MAX_ZOOM_OUT_MARGIN = 2; // 웹에서 휠로 최대 줌아웃했을 때 보드 바깥으로 보이는 여백(칸 수, 한쪽 기준)
-// 뷰포트 크기에 맞춰 "최대 줌아웃(=최소 cellSize)"을 계산 — 화면이 넓을수록 더 축소해야
-// 하지만, 그래도 보드 바깥 여백이 MAX_ZOOM_OUT_MARGIN칸을 넘지 않도록 cellSize 하한을 잡음
+// 최대 줌아웃했을 때 보이는 여백을 PAN_MARGIN_X/Y와 정확히 맞춤 — 예전엔 이 둘이
+// 서로 다른 상수(MAX_ZOOM_OUT_MARGIN)를 썼어서, 좌우 팬 여백은 1칸으로 줄여도
+// 줌아웃 여백은 여전히 2칸짜리 기준으로 계산되는 "여백 불일치"가 있었음
+const MAX_ZOOM_OUT_MARGIN_X = PAN_MARGIN_X;
+const MAX_ZOOM_OUT_MARGIN_Y = PAN_MARGIN_Y;
+// 뷰포트 크기에 맞춰 "최대 줌아웃(=최소 cellSize)"을 계산 — 가로/세로 각각 목표 여백을
+// 넘지 않는 cellSize를 따로 구한 뒤 더 작은 쪽(=더 확대된 쪽)을 최종 하한으로 삼음.
+// 그래야 두 축 다 "목표 여백 이하"가 보장되고, 화면 비율상 더 여유로운 축(대개 세로)은
+// 그만큼 여백이 더 커지는 것만 허용됨(반대로 부족해지진 않음)
 function minCellSizeForZoomOut() {
   const boardSpan = BOARD_MAX + 1 - BOARD_MIN; // 15
-  const maxViewSpan = boardSpan + MAX_ZOOM_OUT_MARGIN * 2;
-  // 짧은 쪽 뷰포트 변을 기준으로 잡아야 함 — 긴 쪽(max) 기준으로 잡으면 반대로 짧은 쪽에서
-  // 보드 전체(15칸)보다 적은 칸수만 보이게 되어 보드 일부가 화면 밖으로 잘려버림.
+  const maxViewSpanX = boardSpan + MAX_ZOOM_OUT_MARGIN_X * 2;
+  const maxViewSpanY = boardSpan + MAX_ZOOM_OUT_MARGIN_Y * 2;
   // 세로는 innerHeight가 아니라 visibleHeight()를 씀 — 모바일(폰)에서는 키보드가 항상
-  // 열려있다고 가정한 값이라, 키보드가 실제로 뜬 뒤에도 "여백 MAX_ZOOM_OUT_MARGIN칸" 기준이
-  // 그대로 유지되고 줌아웃 한계가 갑자기 달라지지 않음
-  return Math.min(innerWidth, visibleHeight()) / maxViewSpan;
+  // 열려있다고 가정한 값이라, 키보드가 실제로 뜬 뒤에도 여백 기준이 그대로 유지되고
+  // 줌아웃 한계가 갑자기 달라지지 않음
+  return Math.min(innerWidth / maxViewSpanX, visibleHeight() / maxViewSpanY);
 }
 let usedWords = new Set();          // 이미 보드에 쓰인 단어(canonical 기준) — 중복 사용 방지
 let userCount = 1;
