@@ -257,7 +257,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.57</div>
+<div id="verTagBottom">v1.1.58</div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
@@ -1493,6 +1493,12 @@ function playJoinDing() {
 const brand = document.getElementById('brand');
 const infoPanel = document.getElementById('infoPanel');
 brand.onclick = () => infoPanel.classList.toggle('hidden');
+// 안내창 자체를 클릭해도 닫히게 함(작은 브랜드 아이콘을 다시 찾아 눌러야 하는 불편을 줄임).
+// 단, 안쪽 초기화 버튼을 누른 경우는 그 버튼 동작이 우선이어야 하므로 닫지 않음
+infoPanel.addEventListener('click', (e) => {
+  if (e.target.closest('#resetBoardBtn')) return;
+  infoPanel.classList.add('hidden');
+});
 
 // 반복 테스트를 위한 임시 초기화 버튼 — 보드 전체를 비움(단어/포획 영역 모두). 테스트 끝나면
 // 버튼(HTML)과 이 핸들러, 위쪽 #resetBoardBtn CSS까지 통째로 지워도 됨.
