@@ -3,10 +3,11 @@ import UIKit
 
 // WKWebView가 텍스트 입력 포커스 시 자동으로 붙이는 키보드 위
 // "이전/다음/완료" 툴바(input accessory view)를, 완전히 없애는 대신
-// 문구 없는 키보드 닫기 아이콘 하나만 있는 얇은 툴바로 바꿔치기한다.
+// 기본 바와 똑같은 모양이되 문구만 "완료"→"숨기기"로 바꾼 툴바로 바꿔치기한다.
 // (처음엔 통째로 nil 반환해서 완전히 없앴었는데, "완료" 같은 문구가 입력(제출)
 // 버튼처럼 보여 혼란을 준다는 문제와, 키보드를 닫을 방법 자체가 사라진다는
-// 문제가 둘 다 있었음 — 문구는 빼고 닫는 기능만 남긴 게 이 버전)
+// 문제가 둘 다 있었음 — 아이콘만 남긴 버전은 안 예쁘다는 피드백을 받아, 기본
+// 모양은 그대로 살리고 문구만 바꾼 지금 버전으로 바꿈)
 // 별도 Capacitor 플러그인 없이, WKWebView 내부에서 실제 텍스트 입력을
 // 처리하는 private WKContentView 클래스의 inputAccessoryView를
 // 메서드 스위즐링으로 바꿔치기한다.
@@ -54,17 +55,19 @@ extension WKWebView {
         print("[accessoryFix] step4 OK: swizzle applied successfully")
     }()
 
-    // 문구(완료/Done 등) 없이, 키보드를 닫는 아이콘 버튼 하나만 있는 얇은 툴바.
-    // 버튼의 target/action은 KeyboardDismisser.shared로 고정 — 실제 웹뷰 인스턴스를
-    // 기억해뒀다가 JS blur()로 확실하게 키보드를 닫기 위함(자세한 이유는 위 주석 참고).
+    // 기본 시스템 키보드 툴바와 똑같은 모양(반투명 회색 바, 오른쪽 정렬된 굵은 파란
+    // 글씨의 .done 스타일 버튼)을 그대로 쓰되, 문구만 "완료"(입력/제출 버튼처럼
+    // 오해하기 쉬움) 대신 "숨기기"로 바꾼다. WKWebView의 기본 accessory view는 애플
+    // 내부 구현이라 문구를 직접 바꿀 방법이 없어서, 겉모양만 똑같이 흉내낸 툴바로
+    // 대체하는 것 — 버튼의 target/action은 KeyboardDismisser.shared로 고정해 실제
+    // 웹뷰 인스턴스를 기억해뒀다가 JS blur()로 확실하게 키보드를 닫는다(자세한 이유는
+    // 위 주석 참고).
     @objc var wv_customInputAccessoryView: UIView? {
-        let toolbar = UIToolbar(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 38))
+        let toolbar = UIToolbar(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 44))
         toolbar.barStyle = .default
         toolbar.isTranslucent = true
         let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
-        let icon = UIImage(systemName: "keyboard.chevron.compact.down")
-        let closeItem = UIBarButtonItem(image: icon, style: .plain, target: KeyboardDismisser.shared, action: #selector(KeyboardDismisser.dismiss))
-        closeItem.accessibilityLabel = "키보드 닫기"
+        let closeItem = UIBarButtonItem(title: "숨기기", style: .done, target: KeyboardDismisser.shared, action: #selector(KeyboardDismisser.dismiss))
         toolbar.items = [flexSpace, closeItem]
         toolbar.sizeToFit()
         return toolbar
