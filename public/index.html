@@ -228,9 +228,10 @@
     background: rgba(40,40,40,.92); color: #fff; padding: 9px 18px;
     border-radius: 20px; font-size: 13px; z-index: 30; display: none;
     max-width: 90vw; text-align: center;
-    /* 짧은 문구는 항상 한 줄로만 보이게 함. 아주 긴 메시지가 어쩌다 들어와도 두 줄로
-       꺾이지 않고, 대신 90vw를 넘는 부분만 "…"으로 잘림 */
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    /* width를 따로 안 주면(position:fixed + left:50%만 있고 right는 없음) 내용 길이에
+       맞춰 자동으로 줄어드는 shrink-to-fit 폭이 적용됨 — 그래서 짧은 문구는 자연히
+       한 줄로만 차지하고, max-width(90vw)를 넘는 긴 문구만 다음 줄로 자연스럽게 줄바꿈됨.
+       말줄임표로 잘라내지 않음(내용이 잘리면 안 되는 정보라서) */
   }
 
   @media (max-width: 640px) {
@@ -322,7 +323,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.1.97</div>
+<div id="verTagBottom">v1.1.98</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
