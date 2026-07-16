@@ -97,14 +97,15 @@
   /* 화면 중앙 위쪽에 반투명(opacity) 박스로 표시 — 1~5등만, 순위가 높을수록 글자를
      크게 해서 한눈에 순위 차이가 보이게 함 */
   #leaderboard {
-    /* 브랜드 로고/접속자 태그와 같은 줄(top:12px)에 놓이면 화면이 좁을 때 서로 겹칠 수
-       있어서, 그 아래 줄에 화면 중앙 위쪽으로 배치함 */
-    position: fixed; top: 54px; left: 50%; transform: translateX(-50%); z-index: 10;
-    background: rgba(255,255,255,.62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    /* 브랜드 로고(좌상단)/접속자 태그(우상단)와 같은 top:12px 줄의 가운데 틈에 배치 —
+       원래는 그 아래 줄(top:54px)에 폭 넓게 떠 있어서 보드를 많이 가렸음. 배경도 그
+       좁은 틈에서 덜 답답해 보이도록 더 투명하게 함 */
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
+    background: rgba(255,255,255,.45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(216,210,196,.75); border-radius: 14px; padding: 10px 16px;
     box-shadow: 0 2px 10px rgba(0,0,0,.08);
     font-size: 12px; color: #444;
-    max-width: min(94vw, 340px);
+    max-width: min(40vw, 320px);
     max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden;
   }
   #leaderboard.hidden { display: none; }
@@ -179,12 +180,10 @@
   @media (max-width: 640px) {
     /* 주소창/노치 등 모바일 상단 UI에 가려 잘리지 않도록 더 아래로, safe-area까지 고려 */
     #toast { bottom: auto; top: calc(92px + env(safe-area-inset-top, 0px)); }
-    /* 모바일에서는 리더보드를 브랜드(좌상단)/접속자 수(우상단)와 같은 줄(top:12px)의
-       가운데로 옮김 — 원래는 그 아래 줄(top:54px)에 화면 폭 대부분을 차지하며 떠 있어서
-       보드를 많이 가렸음. 같은 줄 사이 좁은 틈에 들어가야 하므로 배경을 더 투명하게 하고
-       scale로 전체를 축소해서 좌우 요소와 안 겹치게 함 */
+    /* 모바일은 화면이 좁아 브랜드/접속자 수 사이 틈이 데스크톱보다 훨씬 좁음 —
+       기본값(top:12px, 반투명 배경)은 이미 위에서 공통 적용됐고, 여기서는 그 좁은 틈에
+       맞게 배경을 한 번 더 투명하게 하고 scale로 전체를 축소해서 좌우 요소와 안 겹치게 함 */
     #leaderboard {
-      top: 12px;
       padding: 6px 10px;
       background: rgba(255,255,255,.38);
       max-width: min(50vw, 190px);
@@ -269,7 +268,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.60</div>
+<div id="verTagBottom">v1.1.61</div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
