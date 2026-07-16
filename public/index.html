@@ -314,7 +314,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.78</div>
+<div id="verTagBottom">v1.1.79</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -1643,13 +1643,39 @@ infoPanel.addEventListener('click', (e) => {
   infoPanel.classList.add('hidden');
 });
 
+// 보드를 초기화(리셋)할 때 완전히 빈 상태로 두지 않고, 화면 가운데에 쉬운 낱말 하나를
+// 가로/세로 랜덤으로 미리 깔아줘서 "낱말을 이어붙이는" 느낌으로 바로 시작할 수 있게 함.
+// 너무 어려운/생소한 단어가 나오지 않도록 흔한 명사만 모은 짧은 목록에서 고름(사전 검증
+// 없이 직접 board에 쓰는 거라, 목록에 있는 단어들은 전부 표준국어대사전에 실제로 있는
+// 평범한 명사인지 미리 확인해서 골라둠). by는 특정 플레이어 소유가 아니므로 null로 둠 —
+// 완성 깜빡임 등에서 owner/by가 null이면 이미 중립 색(45도)으로 처리되도록 되어 있음
+const SEED_WORDS = [
+  '사과', '바나나', '학교', '강아지', '고양이', '나무', '하늘', '바다', '구름', '우산',
+  '시계', '창문', '가방', '신발', '안경', '병원', '공원', '음악', '그림', '여행',
+  '겨울', '여름', '무지개', '행복', '사랑', '우정', '거울', '자전거', '딸기', '수박',
+];
+function buildSeedBoard() {
+  const word = SEED_WORDS[Math.floor(Math.random() * SEED_WORDS.length)];
+  const dir = Math.random() < 0.5 ? 'h' : 'v';
+  const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
+  const startX = dir === 'h' ? -Math.floor(word.length / 2) : 0;
+  const startY = dir === 'v' ? -Math.floor(word.length / 2) : 0;
+  const cells = {};
+  for (let i = 0; i < word.length; i++) {
+    const cx = startX + dx * i, cy = startY + dy * i;
+    cells[K(cx, cy)] = { ch: word[i], [dir]: true, by: null };
+  }
+  const words = [{ word, canonical: null, x: startX, y: startY, dir, by: null, ts: Date.now(), chat: false }];
+  return { cells, words, version: 0 };
+}
+
 // 반복 테스트를 위한 임시 초기화 버튼 — 보드 전체를 비움(단어/포획 영역 모두). 테스트 끝나면
 // 버튼(HTML)과 이 핸들러, 위쪽 #resetBoardBtn CSS까지 통째로 지워도 됨.
 const resetBoardBtn = document.getElementById('resetBoardBtn');
 resetBoardBtn.onclick = () => {
   if (!boardRef) { showToast('아직 연결 중이에요. 잠시 후 다시 시도해 주세요.'); return; }
   if (!confirm('정말 모든 낱말을 초기화할까요?\n테스트용 기능이며 지금 접속 중인 모든 사람에게 영향을 줍니다.')) return;
-  boardRef.set({ cells: {}, words: [], version: 0 });
+  boardRef.set(buildSeedBoard());
   prevScores.clear(); // 점수판 카운트업 애니메이션용으로 기억해둔 직전 점수도 같이 초기화
                        // (안 지우면 리셋 후 다시 포획해도 "직전 점수"가 예전 값으로 남아있음)
   closePopup();
@@ -1872,7 +1898,7 @@ gameOverOverlay.addEventListener('click', (e) => {
 gameOverRestartBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   if (!boardRef) { showToast('아직 연결 중이에요. 잠시 후 다시 시도해 주세요.'); return; }
-  boardRef.set({ cells: {}, words: [], version: 0 });
+  boardRef.set(buildSeedBoard());
   prevScores.clear();
   hideGameOver();
 });
