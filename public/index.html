@@ -112,6 +112,16 @@
     white-space: nowrap;
   }
   #gameOverHint { display: block; margin-top: 8px; font-size: 13px; font-weight: 400; color: #8a7a4f; }
+  #gameOverText.hidden { display: none; }
+  /* 승리 화면을 닫으면(눌러서 닫기) 나오는 재시작 버튼 — 비밀번호 없이 누구나 누를 수 있음 */
+  #gameOverRestartBtn {
+    position: relative; font-size: clamp(18px, 5vw, 26px); font-weight: 800;
+    padding: 16px 32px; border-radius: 18px; border: none; cursor: pointer;
+    background: #e05a5a; color: #fff; box-shadow: 0 8px 24px rgba(224,90,90,.4);
+    animation: gameOverFloat 2.2s ease-in-out infinite alternate;
+  }
+  #gameOverRestartBtn.hidden { display: none; }
+  #gameOverRestartBtn:hover { background: #d24747; }
   @keyframes gameOverFloat {
     from { transform: translateY(-14px); }
     to   { transform: translateY(14px); }
@@ -304,11 +314,12 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.73</div>
+<div id="verTagBottom">v1.1.74</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
   <div id="gameOverText">🎉 <span id="gameOverName"></span> 승리! 🎉<span id="gameOverHint">눌러서 닫기</span></div>
+  <button id="gameOverRestartBtn" type="button" class="hidden">🔄 게임 재시작</button>
 </div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
@@ -1742,10 +1753,13 @@ function updateLeaderboard() {
 // 보드(15x15, 총 225칸)에 빈칸이 하나도 없으면(전부 낱말이거나 이미 포획된 칸) 더 이상
 // 새로 포획할 영역이 생길 수 없으므로 게임 종료로 봄. 포획한 칸이 가장 많은 사람이 승자.
 const gameOverOverlay = document.getElementById('gameOverOverlay');
+const gameOverTextEl = document.getElementById('gameOverText');
 const gameOverNameEl = document.getElementById('gameOverName');
+const gameOverRestartBtn = document.getElementById('gameOverRestartBtn');
 const confettiCanvas = document.getElementById('confettiCanvas');
 const confettiCtx = confettiCanvas.getContext('2d');
 let gameOverShown = false; // 지금 이 "꽉 찬" 상태를 이미 축하했는지 — 재초기화되면 다시 false로 풀림
+let gameOverPhase = 'celebrate'; // 'celebrate'(축하+컨페티) -> 눌러서 닫으면 'restart'(재시작 버튼)
 let confettiParticles = [];
 let confettiBurstTimer = null;
 let confettiRafId = null;
@@ -1802,7 +1816,17 @@ function stepConfetti() {
   confettiRafId = requestAnimationFrame(stepConfetti);
 }
 
+function stopConfetti() {
+  if (confettiBurstTimer) { clearInterval(confettiBurstTimer); confettiBurstTimer = null; }
+  if (confettiRafId) { cancelAnimationFrame(confettiRafId); confettiRafId = null; }
+  confettiParticles = [];
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+}
+
 function showGameOver(winnerOwner) {
+  gameOverPhase = 'celebrate';
+  gameOverTextEl.classList.remove('hidden');
+  gameOverRestartBtn.classList.add('hidden');
   gameOverNameEl.textContent = ownerName(winnerOwner);
   gameOverOverlay.classList.remove('hidden');
   resizeConfettiCanvas();
@@ -1812,15 +1836,34 @@ function showGameOver(winnerOwner) {
   if (!confettiRafId) confettiRafId = requestAnimationFrame(stepConfetti);
 }
 
-function hideGameOver() {
-  gameOverOverlay.classList.add('hidden');
-  if (confettiBurstTimer) { clearInterval(confettiBurstTimer); confettiBurstTimer = null; }
-  if (confettiRafId) { cancelAnimationFrame(confettiRafId); confettiRafId = null; }
-  confettiParticles = [];
-  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+// 축하 화면을 눌러서 닫으면 완전히 사라지는 대신, 가운데에 재시작 버튼을 띄움 —
+// 비밀번호 없이 접속 중인 누구나 눌러서 바로 다음 판을 시작할 수 있음
+function showRestartPrompt() {
+  gameOverPhase = 'restart';
+  stopConfetti();
+  gameOverTextEl.classList.add('hidden');
+  gameOverRestartBtn.classList.remove('hidden');
 }
 
-gameOverOverlay.addEventListener('click', hideGameOver);
+function hideGameOver() {
+  gameOverOverlay.classList.add('hidden');
+  stopConfetti();
+}
+
+gameOverOverlay.addEventListener('click', (e) => {
+  if (e.target.closest('#gameOverRestartBtn')) return; // 버튼 클릭은 아래 별도 핸들러가 처리
+  if (gameOverPhase === 'celebrate') { showRestartPrompt(); return; }
+  hideGameOver(); // 재시작 버튼 화면에서 버튼 바깥(배경)을 누르면 그냥 닫기만 함
+});
+
+gameOverRestartBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (!boardRef) { showToast('아직 연결 중이에요. 잠시 후 다시 시도해 주세요.'); return; }
+  boardRef.set({ cells: {}, words: [], version: 0 });
+  prevScores.clear();
+  hideGameOver();
+});
+
 addEventListener('resize', () => { if (!gameOverOverlay.classList.contains('hidden')) resizeConfettiCanvas(); });
 
 function checkGameOver() {
