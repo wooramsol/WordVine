@@ -319,7 +319,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.1.92</div>
+<div id="verTagBottom">v1.1.93</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -1686,8 +1686,30 @@ function playGameStart() {
   [[523.25, 0], [659.25, 0.09], [783.99, 0.18]].forEach(([f, d]) => playTone(f, d, 0.22, 'sine', 0.16));
 }
 // 타이핑 — 스팸 방지를 위해 아주 짧고 작은 틱 소리로만
+// 부드러운 멤브레인 키보드 느낌 — 순음(oscillator) 대신 짧은 노이즈 버스트를 저역통과
+// 필터에 통과시켜 만든 "톡" 소리(실제 멤브레인 키보드/타자기 계열 클릭음이 화이트노이즈에
+// 가까운 원리와 같음). 음정이 있는 삑삑 소리보다 훨씬 자연스럽고, 매 타이핑마다 울려도
+// 거슬리지 않음.
 function playTypeTick() {
-  playTone(1200, 0, 0.045, 'square', 0.045);
+  const ctx = ensureAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+  const now = ctx.currentTime;
+  const dur = 0.045;
+  const n = Math.floor(ctx.sampleRate * dur);
+  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = 1800;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.3, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+  src.connect(lp).connect(gain).connect(ctx.destination);
+  src.start(now);
 }
 // 단어 완성(사전에 있는 단어를 성공적으로 놓음) — 경쾌한 2음 상승
 function playWordComplete() {
