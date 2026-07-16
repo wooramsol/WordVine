@@ -268,7 +268,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.61</div>
+<div id="verTagBottom">v1.1.62</div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
@@ -293,7 +293,12 @@ const K = (x, y) => x + ',' + y;
 const BOARD_MIN = -7, BOARD_MAX = 7; // 15칸: -7 ~ 7
 const inBounds = (x, y) => x >= BOARD_MIN && x <= BOARD_MAX && y >= BOARD_MIN && y <= BOARD_MAX;
 const OUT_OF_BOUNDS_WALL = { ch: null, dirs: [], captured: true, owner: null };
-const PAN_MARGIN_X = 1; // 보드 경계 밖 좌우로 카메라를 옮길 수 있는 여유 칸 수
+// 줌 기능을 없애면서(아래 "팬 / 줌" 섹션 참고) cellSize가 화면 크기만으로 결정되는 고정값이 됨에
+// 따라, 이 여백 상수를 기기 판별보다 먼저 계산해야 해서 HAS_TOUCH를 여기로 끌어올림
+const HAS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+// 좌우 여백: 모바일은 화면이 작아 조금이라도 더 크게 보여야 하므로 한 칸의 1/3만큼만 타이트하게,
+// 웹은 기존 1칸 그대로 유지
+const PAN_MARGIN_X = HAS_TOUCH ? 1 / 3 : 1; // 보드 경계 밖 좌우로 카메라를 옮길 수 있는 여유 칸 수
 const PAN_MARGIN_Y = 2; // 보드 경계 밖 위아래로 카메라를 옮길 수 있는 여유 칸 수(키보드와 거리 확보용)
 // 최대 줌아웃했을 때 보이는 여백을 PAN_MARGIN_X/Y와 정확히 맞춤 — 예전엔 이 둘이
 // 서로 다른 상수(MAX_ZOOM_OUT_MARGIN)를 썼어서, 좌우 팬 여백은 1칸으로 줄여도
@@ -538,6 +543,10 @@ function resize() {
   canvas.height = innerHeight * dpr;
   canvas.style.width = innerWidth + 'px';
   canvas.style.height = innerHeight + 'px';
+  // 줌 기능이 없어지면서 cellSize는 사용자가 조절하는 값이 아니라 "화면 크기에서 정확히
+  // 나오는 고정값"이 됨 — 그래서 화면 크기가 바뀔 때마다(창 크기 조절, 기기 회전 등)
+  // 항상 minCellSizeForZoomOut()으로 다시 맞춰줌(최대 줌아웃 여백 그대로 고정)
+  cellSize = minCellSizeForZoomOut();
   draw();
 }
 addEventListener('resize', resize);
@@ -863,7 +872,7 @@ setInterval(() => {
 // 예전에 이게 "화면이 위로 툭 튀는" 느낌을 줬던 원인은 브라우저 자체의 자동 스크롤과 우리
 // 카메라 재배치가 동시에 겹쳐서였음 — wordInput.focus({preventScroll:true})로 브라우저
 // 자동 스크롤은 이미 막아뒀으니, 카메라만 조용히 다시 계산되어 부드럽게 자리를 잡음
-const HAS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+// (HAS_TOUCH는 위쪽 PAN_MARGIN_X 계산에 필요해 파일 상단으로 옮겨 선언해둠)
 // 안내창의 방향 힌트도 실제 화면에서 보게 될 UI에 맞춰 기기별로 다르게 보여줌 —
 // 모바일은 가로/세로 배지, 웹은 Tab 배지+화살표(실제 게임 내 표시와 동일한 모양)
 document.getElementById(HAS_TOUCH ? 'dirHintTouch' : 'dirHintWeb').style.display = '';
@@ -895,15 +904,11 @@ function visibleTop() {
 // 보드 전체(15x15 고정 범위)가 화면에 딱 맞게 들어오도록. 예전엔 무한보드라 "지금까지
 // 놓인 글자들의 범위"에 맞춰 카메라를 잡았지만, 이제 보드 크기가 고정이라 항상 전체
 // 15x15를 한 화면에 보여주는 게 더 직관적임(빈 보드든 아니든 항상 같은 뷰로 시작)
+// 줌 기능이 없어진 뒤로는 이 "처음 맞춤"이 곧 유일한 화면 크기이기도 함 — 그래서 별도
+// 계산식 대신 resize()와 똑같이 minCellSizeForZoomOut()을 그대로 씀(카메라 중앙 정렬은
+// clampCamera()가 draw() 안에서 자동으로 해줌)
 function fitBoard() {
-  const vw = innerWidth, vh = visibleHeight();
-  const pad = 1; // 경계선 주변 여백
-  const bw = (BOARD_MAX - BOARD_MIN + 1) + pad * 2;
-  const bh = bw;
-  cellSize = Math.min(64, Math.max(10, Math.min(vw / bw, vh / bh)));
-  const cx = (BOARD_MIN + BOARD_MAX + 1) / 2, cy = cx;
-  camX = cx - vw / (2 * cellSize);
-  camY = cy - vh / (2 * cellSize);
+  cellSize = minCellSizeForZoomOut();
   draw();
 }
 
@@ -971,7 +976,11 @@ if (window.visualViewport) {
   });
 }
 
-// ---------- 팬 / 줌 ----------
+// ---------- 팬 ----------
+// 줌 기능은 완전히 제거함(휠/핀치 모두) — cellSize는 이제 항상 minCellSizeForZoomOut()
+// 고정값이라 보드 전체가 항상 화면에 꽉 차게 보임. 그 결과 clampCamera()가 카메라를 항상
+// 정중앙에 고정시키므로 아래 드래그(팬) 코드는 사실상 항상 제자리로 되돌아가지만, 탭/클릭
+// 판정 로직과 얽혀 있어 그대로 남겨둠(동작에 문제 없음)
 let dragging = false, moved = false, lastX = 0, lastY = 0;
 
 canvas.addEventListener('mousedown', e => {
@@ -996,36 +1005,21 @@ addEventListener('mouseup', e => {
   }
   dragging = false;
 });
-canvas.addEventListener('wheel', e => {
-  e.preventDefault();
-  const [ex, ey] = toCanvasXY(e.clientX, e.clientY);
-  const [wx, wy] = [ex / cellSize + camX, ey / cellSize + camY];
-  cellSize = Math.min(90, Math.max(minCellSizeForZoomOut(), cellSize * (e.deltaY < 0 ? 1.1 : 0.9)));
-  camX = wx - ex / cellSize;
-  camY = wy - ey / cellSize;
-  draw();
-}, { passive: false });
 
-// ---------- 터치 (모바일): 한 손가락 팬/탭, 두 손가락 핀치 줌 ----------
-let touch = null; // { mode, x, y, moved, t0, d, mx, my }
-const tDist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+// ---------- 터치 (모바일): 한 손가락 팬/탭 ----------
+let touch = null; // { mode, x, y, moved, t0 }
 
 // 모바일에서는 단순 탭(→ 칸 선택 → 키보드 띄우기)까지 preventDefault()로 막아버리면
 // 일부 브라우저(특히 iOS Safari)가 이 터치를 "진짜 사용자 제스처"로 덜 신뢰해서 키보드가
-// 안 뜨는 경우가 있음. 그래서 실제로 드래그/핀치가 시작된 뒤에만 preventDefault()를 걸고,
+// 안 뜨는 경우가 있음. 그래서 실제로 드래그가 시작된 뒤에만 preventDefault()를 걸고,
 // 제자리 탭은 브라우저의 자연스러운 탭 처리 흐름을 최대한 건드리지 않음.
 canvas.addEventListener('touchstart', e => {
   if (e.touches.length === 1) {
     const t = e.touches[0];
     const [ex, ey] = toCanvasXY(t.clientX, t.clientY);
     touch = { mode: 'pan', x: ex, y: ey, sx: ex, sy: ey, moved: false, t0: Date.now() };
-  } else if (e.touches.length === 2) {
-    e.preventDefault(); // 두 손가락은 핀치줌 의도가 확실하므로 바로 막음
-    const [a, b] = e.touches;
-    const [amx, amy] = toCanvasXY(a.clientX, a.clientY);
-    const [bmx, bmy] = toCanvasXY(b.clientX, b.clientY);
-    touch = { mode: 'pinch', d: tDist(a, b), mx: (amx + bmx) / 2, my: (amy + bmy) / 2 };
   }
+  // 두 손가락 이상은(과거 핀치줌 제스처) 이제 아무 동작도 하지 않음 — 줌 기능 제거
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
@@ -1038,21 +1032,6 @@ canvas.addEventListener('touchmove', e => {
     if (touch.moved) e.preventDefault(); // 실제로 움직이기 시작한 뒤에만 스크롤 등 기본 동작을 막음
     camX -= dx / cellSize; camY -= dy / cellSize;
     touch.x = ex; touch.y = ey;
-    draw();
-  } else if (touch.mode === 'pinch' && e.touches.length === 2) {
-    e.preventDefault();
-    const [a, b] = e.touches;
-    const d = tDist(a, b);
-    const [amx, amy] = toCanvasXY(a.clientX, a.clientY);
-    const [bmx, bmy] = toCanvasXY(b.clientX, b.clientY);
-    const mx = (amx + bmx) / 2, my = (amy + bmy) / 2;
-    const [wx, wy] = [mx / cellSize + camX, my / cellSize + camY];
-    // 최소 cellSize도 웹과 같은 기준(minCellSizeForZoomOut)을 써서, 키보드가 항상
-    // 열려있다고 가정한 여백 기준으로 핀치 줌아웃 한계를 잡음(기존엔 18로 고정값)
-    cellSize = Math.min(90, Math.max(minCellSizeForZoomOut(), cellSize * (d / touch.d)));
-    camX = wx - mx / cellSize;
-    camY = wy - my / cellSize;
-    touch.d = d; touch.mx = mx; touch.my = my;
     draw();
   }
 }, { passive: false });
