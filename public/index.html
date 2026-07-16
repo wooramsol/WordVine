@@ -105,6 +105,9 @@
     padding: 4px 10px;
     font-size: 12px; color: #444;
     text-shadow: 0 0 4px #fff, 0 0 4px #fff, 0 1px 2px rgba(255,255,255,.9);
+    /* 클릭/터치 이벤트를 통과시켜서 뒤에 있는 보드 칸을 그대로 선택할 수 있게 함 —
+       리더보드엔 클릭할 만한 요소(버튼 등)가 없으므로 안전하게 전부 통과시켜도 됨 */
+    pointer-events: none;
     max-width: min(40vw, 320px);
     max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden;
   }
@@ -267,7 +270,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.65</div>
+<div id="verTagBottom">v1.1.66</div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
