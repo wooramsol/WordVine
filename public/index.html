@@ -314,7 +314,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.79</div>
+<div id="verTagBottom">v1.1.80</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -1645,15 +1645,20 @@ infoPanel.addEventListener('click', (e) => {
 
 // 보드를 초기화(리셋)할 때 완전히 빈 상태로 두지 않고, 화면 가운데에 쉬운 낱말 하나를
 // 가로/세로 랜덤으로 미리 깔아줘서 "낱말을 이어붙이는" 느낌으로 바로 시작할 수 있게 함.
-// 너무 어려운/생소한 단어가 나오지 않도록 흔한 명사만 모은 짧은 목록에서 고름(사전 검증
-// 없이 직접 board에 쓰는 거라, 목록에 있는 단어들은 전부 표준국어대사전에 실제로 있는
-// 평범한 명사인지 미리 확인해서 골라둠). by는 특정 플레이어 소유가 아니므로 null로 둠 —
-// 완성 깜빡임 등에서 owner/by가 null이면 이미 중립 색(45도)으로 처리되도록 되어 있음
-const SEED_WORDS = [
-  '사과', '바나나', '학교', '강아지', '고양이', '나무', '하늘', '바다', '구름', '우산',
-  '시계', '창문', '가방', '신발', '안경', '병원', '공원', '음악', '그림', '여행',
-  '겨울', '여름', '무지개', '행복', '사랑', '우정', '거울', '자전거', '딸기', '수박',
-];
+// 너무 어려운/생소한 단어가 나오지 않도록, 국립국어원 "한국어 학습용 어휘 목록"(외국인
+// 대상 한국어 교육용 기초~중급 어휘, 약 6천 개)과 게임 자체 사전(words.txt, 표준국어대사전
+// 명사)의 교집합만 골라 public/seed-words.txt로 미리 만들어뒀음(약 3,200개, 길이 2~5자
+// 다양) — 학습용 어휘 목록엔 동사/형용사 등도 섞여 있는데, 명사 사전과 교집합을 취하면
+// 자연히 명사만 남고 "쉬운 단어"라는 조건도 함께 만족함. by는 특정 플레이어 소유가
+// 아니므로 null로 둠 — 완성 깜빡임 등에서 owner/by가 null이면 중립 색(45도)으로 처리됨
+let SEED_WORDS = ['사과', '바나나', '학교', '강아지', '고양이']; // seed-words.txt 로드 전 최소 폴백
+fetch('seed-words.txt')
+  .then(r => r.text())
+  .then(t => {
+    const list = t.split('\n').map(s => s.trim()).filter(Boolean);
+    if (list.length) SEED_WORDS = list;
+  })
+  .catch(() => {}); // 실패해도 위 폴백 5개로 계속 동작함
 function buildSeedBoard() {
   const word = SEED_WORDS[Math.floor(Math.random() * SEED_WORDS.length)];
   const dir = Math.random() < 0.5 ? 'h' : 'v';
