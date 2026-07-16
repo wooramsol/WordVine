@@ -319,7 +319,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.1.94</div>
+<div id="verTagBottom">v1.1.95</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -1685,9 +1685,8 @@ function playTone(freq, delay, dur, type, peak) {
 function playGameStart() {
   [[523.25, 0], [659.25, 0.09], [783.99, 0.18]].forEach(([f, d]) => playTone(f, d, 0.22, 'sine', 0.16));
 }
-// 타이핑 — 진짜 기계식 타자기 "레버 풀백 틱" 느낌. 노이즈 버스트를 공진(bandpass) 필터에
-// 통과시켜 금속 타건음의 몸통을 만들고(clack), 그보다 살짝 늦게 더 작고 높은 클릭을 하나 더
-// 얹어서 "타건 후 레버가 튕겨 돌아오는" 2단 소리를 흉내냄.
+// 타이핑 — 노이즈 버스트를 공진(bandpass) 필터에 통과시켜 기계식 타자기 특유의
+// 금속 타건 몸통음(clack)을 만드는 공통 헬퍼.
 function playClack(delay, dur, hz, q, peak) {
   const ctx = ensureAudioCtx();
   if (!ctx) return;
@@ -1709,9 +1708,9 @@ function playClack(delay, dur, hz, q, peak) {
   src.connect(bp).connect(gain).connect(ctx.destination);
   src.start(now);
 }
+// 올리베티 레테라 느낌 — 가볍고 빠른 휴대용 타자기 특유의 짧고 높은 단발 클릭
 function playTypeTick() {
-  playClack(0, 0.018, 2600, 4, 0.5);
-  playClack(0.05, 0.01, 4200, 5, 0.18);
+  playClack(0, 0.014, 3200, 5, 0.45);
 }
 // 단어 완성(사전에 있는 단어를 성공적으로 놓음) — 경쾌한 2음 상승
 function playWordComplete() {
