@@ -115,12 +115,13 @@
   /* 승리 화면을 닫으면(눌러서 닫기) 나오는 재시작 버튼 — 비밀번호 없이 누구나 누를 수 있음 */
   #gameOverRestartBtn {
     position: relative; font-size: clamp(18px, 5vw, 26px); font-weight: 800;
-    padding: 16px 32px; border-radius: 18px; border: none; cursor: pointer;
-    background: #e05a5a; color: #fff; box-shadow: 0 8px 24px rgba(224,90,90,.4);
+    padding: 16px 32px; border-radius: 18px; cursor: pointer;
+    background: rgba(255,255,255,.9); color: #1a1a1a; border: 1px solid #d8d2c4;
+    box-shadow: 0 8px 28px rgba(0,0,0,.18);
     animation: gameOverFloat 2.2s ease-in-out infinite alternate;
   }
   #gameOverRestartBtn.hidden { display: none; }
-  #gameOverRestartBtn:hover { background: #d24747; }
+  #gameOverRestartBtn:hover { background: rgba(245,241,232,1); }
   @keyframes gameOverFloat {
     from { transform: translateY(-14px); }
     to   { transform: translateY(14px); }
@@ -313,12 +314,12 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.81</div>
+<div id="verTagBottom">v1.1.82</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
   <div id="gameOverText"><span id="gameOverEmoji"></span><span id="gameOverName"></span> 승리!🎉<span id="gameOverHint">눌러서 닫기</span></div>
-  <button id="gameOverRestartBtn" type="button" class="hidden">🔄 게임 재시작</button>
+  <button id="gameOverRestartBtn" type="button" class="hidden">게임 재시작</button>
 </div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
