@@ -314,11 +314,11 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.74</div>
+<div id="verTagBottom">v1.1.75</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
-  <div id="gameOverText">🎉 <span id="gameOverName"></span> 승리! 🎉<span id="gameOverHint">눌러서 닫기</span></div>
+  <div id="gameOverText"><span id="gameOverEmoji"></span><span id="gameOverName"></span> 승리!🎉<span id="gameOverHint">눌러서 닫기</span></div>
   <button id="gameOverRestartBtn" type="button" class="hidden">🔄 게임 재시작</button>
 </div>
 
@@ -1755,6 +1755,7 @@ function updateLeaderboard() {
 const gameOverOverlay = document.getElementById('gameOverOverlay');
 const gameOverTextEl = document.getElementById('gameOverText');
 const gameOverNameEl = document.getElementById('gameOverName');
+const gameOverEmojiEl = document.getElementById('gameOverEmoji');
 const gameOverRestartBtn = document.getElementById('gameOverRestartBtn');
 const confettiCanvas = document.getElementById('confettiCanvas');
 const confettiCtx = confettiCanvas.getContext('2d');
@@ -1827,7 +1828,9 @@ function showGameOver(winnerOwner) {
   gameOverPhase = 'celebrate';
   gameOverTextEl.classList.remove('hidden');
   gameOverRestartBtn.classList.add('hidden');
+  gameOverEmojiEl.textContent = ownerEmoji(winnerOwner);
   gameOverNameEl.textContent = ownerName(winnerOwner);
+  gameOverNameEl.style.color = `hsl(${ownerHue(winnerOwner)}, 60%, 40%)`; // 과일 이름을 그 사람 고유 색으로
   gameOverOverlay.classList.remove('hidden');
   resizeConfettiCanvas();
   confettiParticles = [];
@@ -1852,8 +1855,9 @@ function hideGameOver() {
 
 gameOverOverlay.addEventListener('click', (e) => {
   if (e.target.closest('#gameOverRestartBtn')) return; // 버튼 클릭은 아래 별도 핸들러가 처리
-  if (gameOverPhase === 'celebrate') { showRestartPrompt(); return; }
-  hideGameOver(); // 재시작 버튼 화면에서 버튼 바깥(배경)을 누르면 그냥 닫기만 함
+  if (gameOverPhase === 'celebrate') showRestartPrompt();
+  // 재시작 버튼이 떠 있는 상태에서 배경을 누르는 건 아무 동작도 하지 않음 —
+  // 재시작 버튼을 직접 눌러야만 닫히고 초기화됨
 });
 
 gameOverRestartBtn.addEventListener('click', (e) => {
