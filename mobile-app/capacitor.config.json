@@ -1,9 +1,9 @@
 {
-  "appId": "com.wooramsol.wordvine",
+  "appId": "com.wooramsol.wordbaduk",
   "appName": "낱말바둑",
   "webDir": "../public",
   "server": {
-    "url": "https://wordvine-6846a.web.app",
+    "url": "https://wordbaduk.web.app",
     "cleartext": false
   },
   "ios": {

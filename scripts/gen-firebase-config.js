@@ -4,7 +4,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 
-const PROJECT = process.env.FIREBASE_PROJECT || 'wordvine-6846a';
+const PROJECT = process.env.FIREBASE_PROJECT || 'wordbaduk';
 
 function fb(cmd) {
   return execSync(`firebase ${cmd} --project ${PROJECT} --json`, {
@@ -30,7 +30,7 @@ try {
 }
 if (!appId) {
   console.log('웹앱이 없어 새로 생성합니다…');
-  const j = parse(fb('apps:create WEB WordVine'));
+  const j = parse(fb('apps:create WEB WordBaduk'));
   appId = j.result?.appId || j.result?.app?.appId;
 }
 if (!appId) throw new Error('웹앱 ID를 얻지 못했습니다.');

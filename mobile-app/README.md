@@ -1,12 +1,12 @@
 # 낱말바둑 모바일 앱 (Capacitor)
 
-이 폴더는 기존 웹앱(`../public`, https://wordvine-6846a.web.app )을
+이 폴더는 기존 웹앱(`../public`, https://wordbaduk.web.app )을
 Capacitor로 감싸서 iOS/Android 네이티브 앱으로 만든 프로젝트입니다.
 
 ## 동작 방식
 
 `capacitor.config.json`의 `server.url`이 실제 배포된 사이트
-(`https://wordvine-6846a.web.app`)를 가리키고 있습니다. 즉 앱은
+(`https://wordbaduk.web.app`)를 가리키고 있습니다. 즉 앱은
 웹뷰 안에서 이 URL을 바로 엽니다. 그래서:
 
 - `public/index.html`을 고치고 `git push`만 하면(기존 GitHub Actions
@@ -48,7 +48,7 @@ npx cap open ios
 Xcode가 열리면:
 1. 좌측 `App` 프로젝트 선택 → `Signing & Capabilities`에서
    본인 Apple Developer 팀(계정) 선택, Bundle Identifier는
-   `com.wooramsol.wordvine` (그대로 써도 되고, 스토어 제출 전이라면
+   `com.wooramsol.wordbaduk` (그대로 써도 되고, 스토어 제출 전이라면
    원하는 값으로 바꿔도 됩니다 — 제출 후엔 변경 불가).
 2. 상단 기기 선택에서 시뮬레이터 또는 실기기 선택 후 ▶ 실행해서
    먼저 동작 확인.

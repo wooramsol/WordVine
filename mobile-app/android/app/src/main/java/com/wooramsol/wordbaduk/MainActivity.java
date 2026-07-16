@@ -1,4 +1,4 @@
-package com.wooramsol.wordvine;
+package com.wooramsol.wordbaduk;
 
 import com.getcapacitor.BridgeActivity;
 

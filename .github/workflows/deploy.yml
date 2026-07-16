@@ -45,10 +45,10 @@ jobs:
       - name: Generate firebase-config.js
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-          FIREBASE_PROJECT: wordvine-6846a
+          FIREBASE_PROJECT: wordbaduk
         run: node scripts/gen-firebase-config.js
 
       - name: Deploy (hosting + database rules + functions)
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
-        run: firebase deploy --only hosting,database,functions --project wordvine-6846a --non-interactive --force
+        run: firebase deploy --only hosting,database,functions --project wordbaduk --non-interactive --force
