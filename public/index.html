@@ -319,7 +319,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.1.95</div>
+<div id="verTagBottom">v1.1.96</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -1586,10 +1586,9 @@ async function submit() {
       } else {
         const note = placedInfo.canonical ? ` (두음법칙: ${placedInfo.canonical})` : '';
         showToast(`'${placedInfo.word}' 완성!${note}${capNote}`);
-        // 채팅(숫자 섞인) 배치는 사전 검증이 없는 별도 기능이라 "단어 완성" 효과음은
-        // 진짜 사전 단어를 놓았을 때만 울리게 함
-        playWordComplete();
-        if (placedInfo.capturedCount > 0) setTimeout(playScoreGain, 150);
+        // 단어 완성/영역 포획 효과음은 여기서 직접 재생하지 않음 — 나뿐 아니라 접속 중인
+        // 모든 사람에게 들려야 하므로, boardRef.on('value') 쪽에서 이전/이후 스냅샷을 비교해
+        // 재생함(모든 클라이언트가 같은 값 변화를 구독하고 있어서 자연히 다 같이 들림)
       }
       // 완성되면 선택 칸을 방금 완성한 단어의 "마지막 글자" 칸으로 옮김 — 이어서 다음 글자를
       // 바로 입력하기 좋은 위치(예: 단어 끝에 새 글자를 붙여 다른 단어를 잇는 흐름)이기 때문
@@ -2105,6 +2104,7 @@ async function boot() {
   });
 
   let presenceFirstSync = true;
+  const peerTypedPrev = new Map(); // 다른 사람의 타이핑 효과음 브로드캐스트용 — peer id -> 마지막으로 본 typed 문자열
   db.ref('presence').on('value', snap => {
     const val = snap.val() || {};
     const newIds = new Set(Object.keys(val));
@@ -2116,6 +2116,17 @@ async function boot() {
       for (const id of newIds) {
         if (id !== clientId && !onlineIds.has(id)) { playJoinDing(); break; }
       }
+    }
+    // 다른 사람이 타이핑 중일 때도 나에게 틱 소리가 들리게 함(내 타이핑은 wordInput의
+    // input 이벤트에서 즉시 재생하므로 여기선 다른 사람 것만). 프레즌스 갱신 자체가
+    // broadcastTyping()에서 150ms 디바운스돼 있어 매 키 입력 그대로는 아니지만, "누군가
+    // 타이핑 중"이라는 실시간 느낌은 충분히 전달됨. 첫 스냅샷에서는 소리 없이 기준값만 기억.
+    for (const [id, p] of Object.entries(val)) {
+      if (id === clientId) continue;
+      const typed = p && typeof p.typed === 'string' ? p.typed : '';
+      const prevTyped = peerTypedPrev.get(id) || '';
+      if (!presenceFirstSync && typed.length > prevTyped.length) playTypeTick();
+      peerTypedPrev.set(id, typed);
     }
     presenceFirstSync = false;
 
@@ -2136,6 +2147,7 @@ async function boot() {
 
   // 보드 실시간 반영
   let firstSync = true;
+  let prevWordCount = 0, prevCapturedCount = 0; // 단어 완성/영역 포획 효과음의 이전 스냅샷 기준값
   boardRef.on('value', snap => {
     const board = snap.val() || { cells: {}, words: [] };
     const bc = board.cells || {};
@@ -2161,6 +2173,20 @@ async function boot() {
     }
     const wasFirst = firstSync;
     firstSync = false;
+    // 단어 완성/영역 포획 효과음: 누가 놓았든(나 포함) 접속 중인 모든 사람이 같은 board
+    // 스냅샷을 구독하고 있으므로, 여기서 이전 스냅샷과 비교해 늘어났을 때만 재생하면
+    // 자연히 전원에게 동시에 들림. 초기 로드(wasFirst) 때는 기존 상태를 기억만 하고
+    // 소리는 내지 않음(안 그러면 접속하자마자 이미 놓인 모든 단어만큼 소리가 남).
+    const capturedNow = [...cells.values()].filter(c => c.captured).length;
+    if (!wasFirst) {
+      if (words.length > prevWordCount) {
+        const newest = words[words.length - 1];
+        if (newest && !newest.chat) playWordComplete();
+      }
+      if (capturedNow > prevCapturedCount) setTimeout(playScoreGain, 150);
+    }
+    prevWordCount = words.length;
+    prevCapturedCount = capturedNow;
     updateStats();
     updateLeaderboard();
     checkGameOver();
