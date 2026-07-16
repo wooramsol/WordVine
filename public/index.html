@@ -223,6 +223,20 @@
   #modeBadge.show { display: flex; }
   #modeBadge.ok { background: #dcefdb; color: #2c6e2f; border-color: #8fcf93; }
   #modeBadge.err { background: #f7dcdc; color: #a23c3c; border-color: #e29a9a; }
+  /* 키보드 닫기 버튼 — modeBadge 오른쪽에 나란히 뜸. 예전엔 "확인"/"Done" 같은 문구가 있어서
+     입력(제출) 버튼으로 착각하기 쉬웠던 문제가 있었으므로, 문구 없이 화살표 아이콘만 씀.
+     실제로는 선택 자체는 유지한 채 wordInput만 blur()해서 키보드만 내려가게 함(칸 선택은 안 풀림) */
+  #kbCloseBtn {
+    position: fixed; z-index: 21; display: none;
+    width: 32px; height: 32px; padding: 0; border-radius: 50%;
+    background: #eee7d8; color: #6b5e3f; border: 1.5px solid #cfc7b5;
+    transform: translate(-50%, -155%);
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+    align-items: center; justify-content: center; font-size: 15px; line-height: 1;
+    font-family: inherit; -webkit-appearance: none; appearance: none; outline: none;
+  }
+  #kbCloseBtn.show { display: flex; }
   #toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
     background: rgba(40,40,40,.92); color: #fff; padding: 9px 18px;
@@ -319,7 +333,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.1.85</div>
+<div id="verTagBottom">v1.1.86</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -331,6 +345,7 @@
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
 <input id="wordInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" lang="ko">
 <div id="modeBadge"></div>
+<button id="kbCloseBtn" type="button" aria-label="키보드 닫기">⌄</button>
 
 <div id="toast"></div>
 
@@ -1157,6 +1172,7 @@ canvas.addEventListener('touchend', e => {
 // modeBadge: 가로/세로 모드만 표시. 제출은 버튼 없이 키보드 Enter로만 함.
 const wordInput = document.getElementById('wordInput');
 const modeBadge = document.getElementById('modeBadge');
+const kbCloseBtn = document.getElementById('kbCloseBtn');
 let submitEnabled = false; // Enter로 제출 가능한 상태인지
 
 // 배지는 팬/줌 중에도 선택 칸을 계속 따라다녀야 하므로 draw()에서 매번 호출됨 (안전 — 포커스 없음)
@@ -1165,17 +1181,31 @@ let submitEnabled = false; // Enter로 제출 가능한 상태인지
 function positionSelUI() {
   if (!sel || cells.get(K(sel.x, sel.y))?.captured) {
     modeBadge.classList.remove('show');
+    kbCloseBtn.classList.remove('show');
     return;
   }
   if (!HAS_TOUCH) {
     modeBadge.classList.remove('show');
+    kbCloseBtn.classList.remove('show');
     return;
   }
   const [sx, sy] = worldToScreen(sel.x, sel.y);
   modeBadge.style.left = (sx + cellSize / 2) + 'px';
   modeBadge.style.top = sy + 'px';
   modeBadge.classList.add('show');
+  // modeBadge 오른쪽에 나란히: 배지 실제 렌더 폭 + 여백만큼 떨어뜨려 겹치지 않게 함
+  const badgeHalfW = modeBadge.offsetWidth / 2;
+  kbCloseBtn.style.left = (sx + cellSize / 2 + badgeHalfW + 24) + 'px';
+  kbCloseBtn.style.top = sy + 'px';
+  kbCloseBtn.classList.add('show');
 }
+// 문구 없이 아이콘만으로 키보드를 내림(칸 선택 자체는 유지) — 예전엔 accessory bar의
+// "완료"/Done 버튼이 이 역할이었는데, 문구 때문에 입력(제출) 버튼으로 오해하기 쉬워
+// 아예 없앴었음(iOS/Android 네이티브 스위즐링으로 accessory bar 자체를 숨김). 하지만
+// 그러면서 키보드를 닫아 하단 푸터를 볼 방법이 사라져버려서, 문구 없는 자체 버튼으로 대체함.
+kbCloseBtn.addEventListener('click', () => {
+  wordInput.blur();
+});
 
 // wordInput은 칸을 "새로 선택"할 때만 위치를 맞춘다. 타이핑 중(한글 조합 중) 위치/크기가
 // 바뀌면 조합이 중간에 끊기는 브라우저가 있어서, draw()가 자주 호출돼도 여긴 건드리지 않음.
