@@ -11,11 +11,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // 적용되도록, 인스턴스 없이 클래스 레벨 스위즐만 먼저 강제 실행.
     private func applyWebViewCustomizations() {
         _ = WKWebView.hideAccessoryBarOnce
-        // 키보드 닫기 아이콘 버튼이 실제로 JS blur()를 호출할 수 있으려면 진짜 웹뷰
-        // 인스턴스가 필요함 — 준비되는 대로(재시도 호출 포함) KeyboardDismisser에 등록.
-        if let bridgeVC = window?.rootViewController as? CAPBridgeViewController, let webView = bridgeVC.webView {
-            webView.hideKeyboardAccessoryBar()
-        }
         #if DEBUG
         if #available(iOS 16.4, *) {
             if let bridgeVC = window?.rootViewController as? CAPBridgeViewController {
