@@ -304,7 +304,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
-<div id="verTagBottom">v1.1.72</div>
+<div id="verTagBottom">v1.1.73</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -1824,23 +1824,36 @@ gameOverOverlay.addEventListener('click', hideGameOver);
 addEventListener('resize', () => { if (!gameOverOverlay.classList.contains('hidden')) resizeConfettiCanvas(); });
 
 function checkGameOver() {
-  let full = true;
-  for (let x = BOARD_MIN; x <= BOARD_MAX && full; x++) {
-    for (let y = BOARD_MIN; y <= BOARD_MAX; y++) {
-      if (!cells.has(K(x, y))) { full = false; break; }
-    }
-  }
-  if (!full) {
-    if (gameOverShown) { gameOverShown = false; hideGameOver(); } // 초기화 등으로 다시 빈칸이 생기면 리셋
-    return;
-  }
-  if (gameOverShown) return; // 이미 이번 판은 축하 연출을 보여줬음
+  const totalCells = (BOARD_MAX - BOARD_MIN + 1) * (BOARD_MAX - BOARD_MIN + 1); // 225
+  // 아직 낱말도 없고 포획도 안 된 순수 빈칸 수 — 앞으로 "누구든" 최대로 더 확보할 수 있는
+  // 칸 수의 상한선임(낱말이 더 놓이면 그만큼 벽이 늘어서 실제로는 이보다 줄어들기만 함)
+  const remainingEmpty = totalCells - cells.size;
+
   const tally = new Map();
   for (const c of cells.values()) {
     if (c.captured && c.owner) tally.set(c.owner, (tally.get(c.owner) || 0) + 1);
   }
-  if (tally.size === 0) return; // 포획한 사람이 아무도 없으면 축하할 승자가 없음
-  const [winnerOwner] = [...tally.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  let winnerOwner = null;
+  if (tally.size > 0) {
+    const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]);
+    const [leaderOwner, leaderScore] = ranked[0];
+    const secondScore = ranked.length > 1 ? ranked[1][1] : 0;
+    // 2등(또는 아직 0점인 나머지 전원)이 남은 빈칸을 전부 가져가도 1등을 못 넘으면
+    // 더 둘러쌀 필요 없이 이미 승부가 결정된 것 — 조기 종료
+    if (secondScore + remainingEmpty <= leaderScore) {
+      winnerOwner = leaderOwner;
+    } else if (remainingEmpty === 0) {
+      // 조기 종료 조건은 못 채웠어도, 더 둘 빈칸이 아예 없으면(동점 포함) 그걸로 최종 결론
+      winnerOwner = leaderOwner;
+    }
+  }
+
+  if (!winnerOwner) {
+    if (gameOverShown) { gameOverShown = false; hideGameOver(); } // 초기화 등으로 판이 다시 열리면 리셋
+    return;
+  }
+  if (gameOverShown) return; // 이미 이번 판은 축하 연출을 보여줬음
   gameOverShown = true;
   showGameOver(winnerOwner);
 }
