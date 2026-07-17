@@ -336,7 +336,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.3.1</div>
+<div id="verTagBottom">v1.4.0</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -582,19 +582,15 @@ function resolveChatPlace(typed, x, y, dir, getCell) {
 // ---------- 땅따먹기: 완전히 둘러싸인 빈 칸 포획(flood-fill) ----------
 // getCell(x,y): 벽(글자, 이미 포획된 칸, 13x13 경계 밖)이면 truthy, 진짜 빈 칸이면 null
 // newlyPlacedCoords: 이번에 새로 놓인 글자 칸 좌표들 — 이 칸들의 인접 빈 칸에서만 탐색 시작
-// 보드 경계도 벽으로 치기 때문에(가장자리에 붙어 나머지 삼면만 글자로 막아도 포획 인정),
-// "가운데에 글자 하나만 놓아도 남은 보드 전체가 포획되는" 것을 막을 안전장치가 필요함.
-// 영역의 가로 또는 세로가 보드를 끝에서 끝까지("양쪽 벽에 동시에 닿게") 완전히 가로지르면,
-// 그 영역 하나만으로 판단하지 않음 — 예: 가운데에 글자 하나만 놓아도 남은 보드 전체가
-// 이 조건에 걸리는데, 이런 "사실상 안 둘러싸인 넓은 영역"까지 그대로 포획되면 안 되기 때문.
-// 대신 이렇게 끝까지 가로지르는 영역들끼리 칸 수를 비교해서, 더 작은 쪽만 포획함(바둑에서
-// 한 낱말이 보드를 정확히 두 쪽으로 갈랐을 때 더 작은 쪽 진영을 따내는 것과 같은 원리).
-// 비교 대상(반대쪽)이 없는 경우—즉 실제로 둘로 갈리지 않고 새 글자 하나 주변으로 남은
-// 보드 전체가 통째로 이어져 있는 경우—는 자동으로 포획되지 않음(기존 안전장치와 동일한 결과)
+// 보드 경계도 벽으로 치기 때문에, 단어 하나가 보드 한쪽 끝에서 반대쪽 끝까지만 가로질러도
+// (나머지 삼면은 전부 보드 가장자리) "포획"으로 인정되어 버리는 문제가 있었음 — 단어 한
+// 줄만으로 순식간에 땅을 먹을 수 있어 너무 쉬웠음. 그래서 "포위한 네 변(상하좌우) 중
+// 적어도 2면은 실제 단어(글자)로 이뤄져야" 포획으로 인정하도록 제한함. 영역의 bounding
+// box에서 어느 변이 보드 가장자리에 그대로 닿아 있으면 그 변은 "공짜 벽"(글자 아님)으로
+// 치고, 나머지 안쪽 변(글자로 막힌 변)의 개수가 2 이상일 때만 포획됨
 function findCapturedRegions(getCell, K, newlyPlacedCoords) {
-  const boardSpan = BOARD_MAX - BOARD_MIN + 1; // 보드 한 변의 칸 수
   const globalVisited = new Set();
-  const regions = [];
+  const captured = [];
   const NEI = (cx, cy) => [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
 
   for (const [sx0, sy0] of newlyPlacedCoords) {
@@ -619,20 +615,14 @@ function findCapturedRegions(getCell, K, newlyPlacedCoords) {
         }
       }
       for (const k of localVisited) globalVisited.add(k);
-      const spansFull = (maxX - minX + 1 === boardSpan) || (maxY - minY + 1 === boardSpan);
-      regions.push({ cells: region, spansFull });
+
+      // bounding box의 상/하/좌/우 중 보드 가장자리에 닿은 변은 "공짜 벽"으로 세지 않고,
+      // 그 반대(안쪽에서 글자로 막힌 변)만 세어 2면 이상일 때만 포획 인정
+      const freeSides = (minX === BOARD_MIN ? 1 : 0) + (maxX === BOARD_MAX ? 1 : 0) +
+                         (minY === BOARD_MIN ? 1 : 0) + (maxY === BOARD_MAX ? 1 : 0);
+      const wordSides = 4 - freeSides;
+      if (wordSides >= 2) captured.push(...region);
     }
-  }
-
-  const captured = [];
-  for (const r of regions) if (!r.spansFull) captured.push(...r.cells); // 정상적으로 작게 둘러싸인 영역은 그대로 포획
-
-  const fullSpanRegions = regions.filter(r => r.spansFull);
-  if (fullSpanRegions.length >= 2) {
-    // 둘 이상이면 실제로 갈린 것 — 가장 작은 쪽 하나만 포획(3개 이상 갈리는 드문 경우도
-    // 안전하게 그중 최소 하나만 인정)
-    fullSpanRegions.sort((a, b) => a.cells.length - b.cells.length);
-    captured.push(...fullSpanRegions[0].cells);
   }
   return captured;
 }
@@ -1542,11 +1532,10 @@ async function submit() {
       board.cells = board.cells || {};
       board.words = board.words || [];
       // 13x13 밖은 벽으로 취급 — 배치(접두/접미 연결)뿐 아니라 포획(땅따먹기) 판정에서도
-      // 마찬가지. 보드 가장자리에 딱 붙어서 나머지 삼면만 글자로 막아도 "완전히 둘러싸인
-      // 것"으로 인정되어야 하기 때문(경기장 담벼락도 결국 한쪽 벽 역할을 하는 것과 같음).
-      // 다만 이것만으로는 "가운데에 글자 하나만 놓아도 남은 보드 전체가 포획되는" 문제가
-      // 생기므로, findCapturedRegions에서 보드를 끝에서 끝까지 가로지르는 영역은 반대쪽과
-      // 비교해 더 작은 쪽만 포획하도록 처리함(자세한 설명은 그 함수 위 주석 참고)
+      // 마찬가지. 다만 보드 가장자리를 그냥 벽으로만 치면 단어 한 줄로 보드 끝에서 끝까지
+      // 그어버리는 것만으로도(나머지 삼면은 전부 가장자리) 포획이 되어버려 너무 쉬우므로,
+      // findCapturedRegions에서 "포위한 네 변 중 적어도 2면은 실제 글자로 이뤄져야" 포획을
+      // 인정하도록 제한함(자세한 설명은 그 함수 위 주석 참고)
       const getCell = (cx, cy) => {
         if (!inBounds(cx, cy)) return OUT_OF_BOUNDS_WALL;
         const c = board.cells[K(cx, cy)];
