@@ -51,6 +51,15 @@
   #footerCredit a { color: #a08c5a; text-decoration: none; }
   #footerCredit a:hover { text-decoration: underline; }
   #footerCopyright { font-size: 9px; color: #b8ac8e; }
+  /* 최초 접속 시에만 안내 패널 뒤에 깔리는 반투명 배경 — "패널을 눌러야 닫힌다"는 걸
+     모르는 사람도 바깥(배경)을 누르면 닫힌다는 익숙한 팝업 패턴으로 자연스럽게 닫을 수
+     있게 함. infoPanel(z-index 40)보다 한 단계 아래(39)라 패널 자체는 안 가려짐.
+     한 번 닫히면 다시는 안 뜸 — 이후 브랜드 아이콘으로 여닫는 건 기존 방식 그대로 유지. */
+  #infoPanelBackdrop {
+    position: fixed; inset: 0; z-index: 39;
+    background: rgba(40,36,26,.32);
+  }
+  #infoPanelBackdrop.hidden { display: none; }
   #infoPanel {
     /* 최상단 레이어 — wordInput/modeBadge/toast 등 다른 모든 UI(z-index 30 이하)보다
        위에 오도록 해서, 선택된 칸의 배지 등과 겹쳐 보이지 않게 함 */
@@ -307,6 +316,7 @@
 <canvas id="board"></canvas>
 
 <div id="brand">낱말바둑<span id="brandHelpIcon">ⓘ</span></div>
+<div id="infoPanelBackdrop" class="hidden"></div>
 <div id="infoPanel" class="hidden">
   <div style="white-space: nowrap; overflow-x: auto;">실시간으로 여러 명이 함께하는 낱말바둑이에요.<br>
   칸을 눌러 낱말을 만들어보세요. 어디에 이어붙여도 괜찮아요.<br>
@@ -323,7 +333,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.1.98</div>
+<div id="verTagBottom">v1.1.99</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -1751,12 +1761,21 @@ function playGameOverFanfare() {
 // ---------- 안내 패널 ----------
 const brand = document.getElementById('brand');
 const infoPanel = document.getElementById('infoPanel');
-brand.onclick = () => infoPanel.classList.toggle('hidden');
+const infoPanelBackdrop = document.getElementById('infoPanelBackdrop');
+brand.onclick = () => infoPanel.classList.toggle('hidden'); // 브랜드 아이콘으로 여닫는 건 배경 없이 그대로
 // 안내창 자체를 클릭해도 닫히게 함(작은 브랜드 아이콘을 다시 찾아 눌러야 하는 불편을 줄임).
 // 단, 안쪽 초기화 버튼을 누른 경우는 그 버튼 동작이 우선이어야 하므로 닫지 않음
 infoPanel.addEventListener('click', (e) => {
   if (e.target.closest('#resetBoardBtn')) return;
   infoPanel.classList.add('hidden');
+  infoPanelBackdrop.classList.add('hidden');
+});
+// 최초 자동으로 열린 안내창 전용 — 배경을 눌러도 닫히게 함(팝업 바깥을 누르면 닫히는
+// 익숙한 패턴). 한 번 닫히면 backdrop은 hidden 상태로 남고, 이후 브랜드 아이콘으로
+// 다시 열어도 이 배경은 다시 나타나지 않음(brand.onclick이 건드리지 않으므로).
+infoPanelBackdrop.addEventListener('click', () => {
+  infoPanel.classList.add('hidden');
+  infoPanelBackdrop.classList.add('hidden');
 });
 
 // 보드를 초기화(리셋)할 때 완전히 빈 상태로 두지 않고, 화면 가운데에 쉬운 낱말 하나를
@@ -1804,7 +1823,12 @@ resetBoardBtn.onclick = () => {
   playGameStart();
 };
 // 인앱 브라우저 탈출 안내 화면이 떠 있는 중이면 안내 패널을 열지 않음
-if (!window.__wvExitScreen) infoPanel.classList.remove('hidden'); // 처음 들어오면 기기와 상관없이 기본으로 열어서 보여줌
+// 처음 들어오면 기기와 상관없이 기본으로 열어서 보여줌 — 이때만 배경도 같이 깔아서
+// "패널을 눌러야 닫힌다"는 걸 몰라도 바깥을 눌러 자연스럽게 닫을 수 있게 함
+if (!window.__wvExitScreen) {
+  infoPanel.classList.remove('hidden');
+  infoPanelBackdrop.classList.remove('hidden');
+}
 
 // ---------- Firebase 실시간 동기화 ----------
 const userCountTagEl = document.getElementById('userCountTag');
