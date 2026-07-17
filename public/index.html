@@ -450,7 +450,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.7</div>
+<div id="verTagBottom">v1.9.8</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -504,6 +504,31 @@
 <script src="firebase-config.js"></script>
 <script>
 'use strict';
+// ---------- 캐시 자가치유: 오래된 캐시 버전이면 스스로 한 번 강제 새로고침 ----------
+// index.html 자체엔 no-cache 헤더가 걸려있지만, 그래도 일부 브라우저/환경에서 오래된
+// 캐시를 계속 들고 있는 경우가 있었음(예: 캐시를 지우기 전엔 계속 무한 로딩). 이미 그런
+// 오래된 캐시를 실행 중인 사람에게 "캐시를 지우세요"라고 안내하기 어려우므로, 대신 이
+// 페이지가 실행되는 시점에 "지금 배포된 최신 버전이 몇인지"를 담은 version.txt를
+// (캐시 안 타게 매번 다른 쿼리 + cache:'no-store'로) 물어봐서, 지금 실행 중인 버전과
+// 다르면 새 쿼리스트링을 붙여 스스로 한 번 새로고침함(새 쿼리스트링 = 브라우저 입장에서
+// "새 주소"라 무조건 새로 받아옴). sessionStorage로 "이 버전에 대해 이미 한 번 시도함"을
+// 기록해서 무한 새로고침 루프에 빠지지 않게 함.
+// 주의: 이 자가치유 코드 자체가 오래된 캐시 안에 없으면(즉, 이 코드가 추가되기 전 버전이
+// 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
+// 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
+// 계속 최신 상태를 스스로 확인하게 됨.
+const APP_VERSION = 'v1.9.8'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+(async function selfHealStaleCache() {
+  try {
+    const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+    const latest = (await res.text()).trim();
+    if (latest && latest !== APP_VERSION && sessionStorage.getItem('wb-forcedReloadFor') !== APP_VERSION) {
+      sessionStorage.setItem('wb-forcedReloadFor', APP_VERSION);
+      location.href = location.pathname + '?_r=' + Date.now();
+    }
+  } catch (e) { /* 버전 확인 실패(오프라인 등)는 무시하고 평소대로 계속 진행 */ }
+})();
+
 // ---------- 상태 ----------
 const cells = new Map();            // "x,y" -> { ch, dirs:[], fresh }
 const K = (x, y) => x + ',' + y;
