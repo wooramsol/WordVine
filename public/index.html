@@ -336,7 +336,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.5.1</div>
+<div id="verTagBottom">v1.5.2</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -384,7 +384,7 @@ const MAX_ZOOM_OUT_MARGIN_Y = PAN_MARGIN_Y;
 // 그래야 두 축 다 "목표 여백 이하"가 보장되고, 화면 비율상 더 여유로운 축(대개 세로)은
 // 그만큼 여백이 더 커지는 것만 허용됨(반대로 부족해지진 않음)
 function minCellSizeForZoomOut() {
-  const boardSpan = BOARD_MAX + 1 - BOARD_MIN; // 15
+  const boardSpan = BOARD_MAX + 1 - BOARD_MIN; // 13
   const maxViewSpanX = boardSpan + MAX_ZOOM_OUT_MARGIN_X * 2;
   const maxViewSpanY = boardSpan + MAX_ZOOM_OUT_MARGIN_Y * 2;
   // 세로는 innerHeight가 아니라 visibleHeight()를 씀 — 모바일(폰)에서는 키보드가 항상
