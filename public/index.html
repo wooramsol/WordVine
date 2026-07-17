@@ -458,7 +458,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.10</div>
+<div id="verTagBottom">v1.9.11</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -525,7 +525,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.10'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.11'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1682,6 +1682,12 @@ wordInput.addEventListener('blur', () => requestAnimationFrame(resize));
 // 위치만 옮기는 동작은 selectstart가 아니라서).
 wordInput.addEventListener('selectstart', e => e.preventDefault());
 wordInput.addEventListener('contextmenu', e => e.preventDefault());
+// selectstart 차단만으론 더블클릭(연속 클릭)으로 단어 선택되는 걸 못 막는 브라우저가 있어서
+// (특히 Safari 계열) mousedown 시점에 e.detail(연속 클릭 횟수)이 2 이상이면 그 클릭 자체의
+// 기본 동작(더블클릭 텍스트 선택)을 막음 — 첫 클릭(detail===1)의 포커스/커서 배치는
+// 그대로 유지되므로 칸 선택/타이핑엔 영향 없음.
+wordInput.addEventListener('mousedown', e => { if (e.detail > 1) e.preventDefault(); });
+wordInput.addEventListener('dblclick', e => e.preventDefault());
 wordInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { submit(); return; }
   if (e.key === 'Escape') { closePopup(); return; }
