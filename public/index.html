@@ -388,9 +388,23 @@
   var isOtherInApp = /inapp|naver|snapchat|instagram|whatsapp|kakaostory|band|twitter|FB_IAB|FB4A|FBAN|FBIOS|FBSS|DaumApps|DaumDevice\/mobile|SamsungBrowser\/[^1]/i.test(ua);
 
   if (isKakao) {
-    // 카카오톡 공식 스킴: 사용자 조작 없이 바로 기본 브라우저로 이동
+    // 카카오톡 공식 스킴: 사용자 조작 없이 바로 기본 브라우저로 이동 시도.
     window.__wvExitScreen = true;
     location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(url);
+    // 이 스킴이 실제로 외부 브라우저로 넘어가면 이 페이지(웹뷰)는 그대로 버려지므로
+    // 아래 코드는 실행 안 됨 — 문제는 카카오톡 앱 버전에 따라 이 스킴을 그냥 무시하고
+    // 카카오톡 인앱 브라우저에 계속 머무는 경우가 있었다는 것(그러면 게임은 실행되지만
+    // 인앱 브라우저의 네트워크 제약 때문에 파이어베이스 실시간 연결이 안 돼서 무한 로딩
+    // 처럼 보임). 그래서 일정 시간 안에 실제로 못 벗어났다면(=이 코드가 여전히 실행 중)
+    // 수동으로 "다른 브라우저로 열기"를 안내하는 화면으로 바꿔치기해서, 안 되는 자동
+    // 이탈만 믿고 계속 로딩 화면에 갇혀있지 않게 함.
+    setTimeout(function () {
+      document.body.innerHTML =
+        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;background:#f5f1e8;font-family:inherit;">' +
+        '<div style="font-size:18px;font-weight:700;margin-bottom:12px;color:#1a1a1a;">브라우저에서 열어야 플레이할 수 있어요</div>' +
+        '<div style="font-size:14px;color:#555;line-height:1.6;">우측 상단 <b>⋯</b> (점 세개) 메뉴를 누른 뒤<br>"다른 브라우저로 열기"를 선택해주세요.</div>' +
+        '</div>';
+    }, 800);
     return;
   }
 
@@ -462,7 +476,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.14</div>
+<div id="verTagBottom">v1.9.15</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -529,7 +543,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.14'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.15'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
