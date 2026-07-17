@@ -12,6 +12,10 @@
       ".read": true,
       ".write": true
     },
+    "playerLastSeen": {
+      ".read": true,
+      ".write": true
+    },
     "fruitCounter": {
       ".read": true,
       ".write": true
