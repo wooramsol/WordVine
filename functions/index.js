@@ -53,7 +53,7 @@ admin.initializeApp();
 
 const NICKNAME_RE = /^[가-힣A-Za-z0-9]{2,10}$/;
 // 클라이언트 index.html의 ICONS 배열과 개수가 반드시 같아야 함(둘 중 하나만 바꾸면 어긋남)
-const ICON_COUNT = 24;
+const ICON_COUNT = 42;
 
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex');

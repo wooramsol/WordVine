@@ -289,7 +289,12 @@
   .authSwitchLine a { color: #8a7a4f; font-weight: 700; text-decoration: none; }
   .authSwitchLine a:hover { text-decoration: underline; }
   .authIconLabel { font-size: 12px; color: #777; margin-top: 14px; margin-bottom: 6px; }
-  #authIconGrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  /* 아이콘 종류가 많아져서 카드 전체가 한없이 길어지지 않도록, 그리드 자체에
+     높이를 주고 그 안에서만 스크롤되게 함(카드의 나머지 부분은 늘 그 자리에 보임) */
+  #authIconGrid {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+    max-height: 190px; overflow-y: auto; padding: 2px;
+  }
   .authIconBtn {
     aspect-ratio: 1; border-radius: 10px; border: 2px solid transparent; background: #f5f1e8;
     font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
@@ -322,6 +327,9 @@
       transform: translateX(-50%) scale(0.85);
       transform-origin: top center;
     }
+    /* 로그아웃/멤버 로그인 버튼이 접속자 태그와 가로로 나란히 있으면 좁은 화면에서
+       서로 겹쳐 보임 — 모바일에서는 세로로 쌓아서 접속자 태그 아래에 오게 함 */
+    #topRight { flex-direction: column; align-items: flex-end; }
   }
 
 </style>
@@ -405,7 +413,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.2</div>
+<div id="verTagBottom">v1.9.3</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -873,17 +881,36 @@ async function claimFruitIndex(id) {
 }
 // 회원가입 때 고르는 아이콘 목록 — 과일(비회원)과는 별개 세트라 한눈에 구분됨.
 // 이름은 직접 정한 닉네임을 쓰므로 여기엔 이모지+고정 색상(hue)만 있으면 됨.
-// functions/index.js의 ICON_COUNT(24)와 반드시 개수가 같아야 함 — 서버가 iconIdx
+// hue는 임의로 고르게 나눈 값이 아니라 그 이모지가 실제로 떠올리게 하는 색(주색)에
+// 최대한 맞춤 — 예를 들어 사과/딸기류는 빨강, 레몬/해바라기는 노랑, 개구리/선인장은
+// 초록 계열. 그래서 아이콘 자체의 인상과 게임 안에서 그 사람 색이 자연스럽게 어울림.
+// functions/index.js의 ICON_COUNT(42)와 반드시 개수가 같아야 함 — 서버가 iconIdx
 // 범위를 검증할 때 쓰는 값이라, 여기서 아이콘을 추가/삭제하면 그쪽도 같이 고쳐야 함.
 const ICONS = [
-  { emoji: '\u{1F98A}', hue: 18 },  { emoji: '\u{1F42F}', hue: 30 },  { emoji: '\u{1F981}', hue: 42 },
-  { emoji: '\u{1F436}', hue: 54 },  { emoji: '\u{1F43B}', hue: 66 },  { emoji: '\u{1F43C}', hue: 78 },
-  { emoji: '\u{1F428}', hue: 90 },  { emoji: '\u{1F430}', hue: 102 }, { emoji: '\u{1F438}', hue: 114 },
-  { emoji: '\u{1F422}', hue: 126 }, { emoji: '\u{1F994}', hue: 150 }, { emoji: '\u{1F984}', hue: 174 },
-  { emoji: '\u{1F433}', hue: 198 }, { emoji: '\u{1F419}', hue: 210 }, { emoji: '\u{1F98B}', hue: 222 },
-  { emoji: '\u{1F427}', hue: 234 }, { emoji: '\u{1F989}', hue: 246 }, { emoji: '\u{1F43A}', hue: 258 },
-  { emoji: '\u{1F409}', hue: 270 }, { emoji: '\u{1F996}', hue: 282 }, { emoji: '\u{2B50}', hue: 300 },
-  { emoji: '\u{1F319}', hue: 312 }, { emoji: '\u{26A1}', hue: 330 },  { emoji: '\u{1F388}', hue: 342 },
+  // 빨강
+  { emoji: '\u{1F352}', hue: 355 }, { emoji: '\u{1F339}', hue: 350 }, { emoji: '\u{1F41E}', hue: 358 },
+  { emoji: '\u{1F980}', hue: 8 },   { emoji: '\u{1F990}', hue: 6 },
+  // 주황/갈색
+  { emoji: '\u{1F98A}', hue: 22 },  { emoji: '\u{1F42F}', hue: 28 },  { emoji: '\u{1F955}', hue: 30 },
+  { emoji: '\u{1F981}', hue: 38 },  { emoji: '\u{1F43B}', hue: 25 },  { emoji: '\u{1F994}', hue: 25 },
+  // 노랑
+  { emoji: '\u{1F425}', hue: 48 },  { emoji: '\u{1F41D}', hue: 50 },  { emoji: '\u{2B50}', hue: 50 },
+  { emoji: '\u{1F34B}', hue: 55 },  { emoji: '\u{1F33B}', hue: 50 },  { emoji: '\u{1F9C0}', hue: 45 },
+  // 초록
+  { emoji: '\u{1F438}', hue: 105 }, { emoji: '\u{1F422}', hue: 120 }, { emoji: '\u{1F996}', hue: 125 },
+  { emoji: '\u{1F409}', hue: 135 }, { emoji: '\u{1F335}', hue: 115 }, { emoji: '\u{1F340}', hue: 120 },
+  { emoji: '\u{1F98E}', hue: 100 },
+  // 청록
+  { emoji: '\u{1F40A}', hue: 165 }, { emoji: '\u{1F995}', hue: 170 }, { emoji: '\u{1F9CA}', hue: 190 },
+  // 파랑
+  { emoji: '\u{1F433}', hue: 205 }, { emoji: '\u{1F41F}', hue: 210 }, { emoji: '\u{1F427}', hue: 210 },
+  { emoji: '\u{1F30A}', hue: 200 }, { emoji: '\u{1F988}', hue: 205 }, { emoji: '\u{1F43A}', hue: 220 },
+  // 보라
+  { emoji: '\u{1F987}', hue: 260 }, { emoji: '\u{1F419}', hue: 270 }, { emoji: '\u{1F346}', hue: 275 },
+  { emoji: '\u{1F52E}', hue: 270 }, { emoji: '\u{1F984}', hue: 285 },
+  // 분홍
+  { emoji: '\u{1F338}', hue: 330 }, { emoji: '\u{1F9A9}', hue: 335 }, { emoji: '\u{1F437}', hue: 340 },
+  { emoji: '\u{1F380}', hue: 330 },
 ];
 // owner(clientId=uid) -> 회원 프로필({nickname, iconIdx}). memberProfiles 전체를 실시간
 // 구독해서 채워짐(boot() 참고). 이 맵에 있으면 회원, 없으면(기존처럼) 과일 배정 대상.
