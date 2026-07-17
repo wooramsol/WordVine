@@ -125,6 +125,11 @@
     white-space: nowrap;
   }
   #gameOverHint { display: block; margin-top: 8px; font-size: 13px; font-weight: 400; color: #8a7a4f; }
+  /* 무승부(포획 0-0으로 보드가 다 찬 경우) — 큰 글씨는 "무승부!🤝"만 짧게 보여주고,
+     설명은 그 아래 작은 줄로 따로 둠(승리 문구처럼 이름이 안 붙어서 나눠야 자연스러움) */
+  #gameOverDrawSub { display: block; margin-top: 4px; font-size: 13px; font-weight: 400; color: #8a7a4f; }
+  #gameOverEmoji.hidden, #gameOverName.hidden, #gameOverSuffix.hidden,
+  #gameOverDrawMsg.hidden, #gameOverDrawSub.hidden { display: none; }
   #gameOverText.hidden { display: none; }
   /* 승리 화면을 닫으면(눌러서 닫기) 나오는 재시작 버튼 — 비밀번호 없이 누구나 누를 수 있음 */
   #gameOverRestartBtn {
@@ -336,11 +341,11 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.5.2</div>
+<div id="verTagBottom">v1.6.0</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
-  <div id="gameOverText"><span id="gameOverEmoji"></span><span id="gameOverName"></span> 승리!🎉<span id="gameOverHint">눌러서 닫기</span></div>
+  <div id="gameOverText"><span id="gameOverEmoji"></span><span id="gameOverName"></span><span id="gameOverSuffix"> 승리!🎉</span><span id="gameOverDrawMsg" class="hidden">무승부!🤝</span><span id="gameOverDrawSub" class="hidden">아무도 땅을 차지하지 못했어요</span><span id="gameOverHint">눌러서 닫기</span></div>
   <button id="gameOverRestartBtn" type="button" class="hidden">게임 재시작</button>
 </div>
 
@@ -1976,10 +1981,15 @@ function updateLeaderboard() {
 // ---------- 게임 종료 판정 + 승리 축하 연출 ----------
 // 보드(13x13, 총 169칸)에 빈칸이 하나도 없으면(전부 낱말이거나 이미 포획된 칸) 더 이상
 // 새로 포획할 영역이 생길 수 없으므로 게임 종료로 봄. 포획한 칸이 가장 많은 사람이 승자.
+// 포획 규칙이 "포위한 4면 중 2면 이상이 실제 글자여야" 함으로 까다로워지면서, 보드가 다
+// 찰 때까지 아무도 한 번도 포획을 못 하는 경우도 생길 수 있음 — 이때는 승자 없이 무승부로 종료.
 const gameOverOverlay = document.getElementById('gameOverOverlay');
 const gameOverTextEl = document.getElementById('gameOverText');
 const gameOverNameEl = document.getElementById('gameOverName');
 const gameOverEmojiEl = document.getElementById('gameOverEmoji');
+const gameOverSuffixEl = document.getElementById('gameOverSuffix');
+const gameOverDrawMsgEl = document.getElementById('gameOverDrawMsg');
+const gameOverDrawSubEl = document.getElementById('gameOverDrawSub');
 const gameOverRestartBtn = document.getElementById('gameOverRestartBtn');
 const confettiCanvas = document.getElementById('confettiCanvas');
 const confettiCtx = confettiCanvas.getContext('2d');
@@ -2052,9 +2062,23 @@ function showGameOver(winnerOwner) {
   gameOverPhase = 'celebrate';
   gameOverTextEl.classList.remove('hidden');
   gameOverRestartBtn.classList.add('hidden');
-  gameOverEmojiEl.textContent = ownerEmoji(winnerOwner);
-  gameOverNameEl.textContent = ownerName(winnerOwner);
-  gameOverNameEl.style.color = `hsl(${ownerHue(winnerOwner)}, 60%, 40%)`; // 과일 이름을 그 사람 고유 색으로
+  if (winnerOwner) {
+    gameOverEmojiEl.textContent = ownerEmoji(winnerOwner);
+    gameOverEmojiEl.classList.remove('hidden');
+    gameOverNameEl.textContent = ownerName(winnerOwner);
+    gameOverNameEl.style.color = `hsl(${ownerHue(winnerOwner)}, 60%, 40%)`; // 과일 이름을 그 사람 고유 색으로
+    gameOverNameEl.classList.remove('hidden');
+    gameOverSuffixEl.classList.remove('hidden');
+    gameOverDrawMsgEl.classList.add('hidden');
+    gameOverDrawSubEl.classList.add('hidden');
+  } else {
+    // 무승부: 보드가 다 찼지만 아무도 포획하지 못한 경우 — 이름/색 없이 중립 문구만 표시
+    gameOverEmojiEl.classList.add('hidden');
+    gameOverNameEl.classList.add('hidden');
+    gameOverSuffixEl.classList.add('hidden');
+    gameOverDrawMsgEl.classList.remove('hidden');
+    gameOverDrawSubEl.classList.remove('hidden');
+  }
   gameOverOverlay.classList.remove('hidden');
   resizeConfettiCanvas();
   confettiParticles = [];
@@ -2110,6 +2134,7 @@ function checkGameOver() {
   }
 
   let winnerOwner = null;
+  let isOver = false;
   if (tally.size > 0) {
     const ranked = [...tally.entries()].sort((a, b) => b[1] - a[1]);
     const [leaderOwner, leaderScore] = ranked[0];
@@ -2118,13 +2143,19 @@ function checkGameOver() {
     // 더 둘러쌀 필요 없이 이미 승부가 결정된 것 — 조기 종료
     if (secondScore + remainingEmpty <= leaderScore) {
       winnerOwner = leaderOwner;
+      isOver = true;
     } else if (remainingEmpty === 0) {
       // 조기 종료 조건은 못 채웠어도, 더 둘 빈칸이 아예 없으면(동점 포함) 그걸로 최종 결론
       winnerOwner = leaderOwner;
+      isOver = true;
     }
+  } else if (remainingEmpty === 0) {
+    // 포획한 사람이 단 한 명도 없는 채로 보드가 다 찬 경우 — winnerOwner를 null로 둔 채
+    // "무승부"로 게임을 종료함(그냥 return하면 아무도 더 못 놓는데 안내 없이 멈춰버림)
+    isOver = true;
   }
 
-  if (!winnerOwner) {
+  if (!isOver) {
     if (gameOverShown) { gameOverShown = false; hideGameOver(); } // 초기화 등으로 판이 다시 열리면 리셋
     return;
   }
