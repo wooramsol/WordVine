@@ -349,7 +349,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.8.0</div>
+<div id="verTagBottom">v1.8.1</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -974,10 +974,13 @@ function draw() {
     cellBox(sx, sy, `hsla(${myHueVal}, 70%, 55%, .2)`, `hsl(${myHueVal}, 65%, 45%)`, 2);
   }
 
-  // 텍스트 입력창의 깜빡이는 캐럿처럼, 다음 글자가 들어갈 칸에 세로 막대를 깜빡여서 보여줌.
-  // 지금까지 타이핑한 글자 수(wordInput.value.length)만큼 입력 방향으로 이동한 칸이
-  // "다음 글자 자리"임 — sel 자체가 항상 타이핑 시작 칸이므로(접두 병합과 무관하게) 이렇게
-  // 계산하면 됨. 500ms 주기로 켜짐/꺼짐을 반복(일반적인 텍스트 캐럿 깜빡임 속도와 비슷하게).
+  // 텍스트 입력창의 깜빡이는 캐럿처럼 보이려면 칸 "가운데"가 아니라 칸과 칸 사이의 경계선에
+  // 딱 붙어야 함(일반 텍스트박스에서 캐럿이 글자 사이 틈에 서는 것과 같은 원리) — 지금까지
+  // 타이핑한 글자 수(typedLen)만큼 입력 방향으로 이동한 칸의 "시작 변"이 정확히 그 경계선임.
+  // 예: 0글자 쳤으면 sel 칸의 왼쪽(가로)/위쪽(세로) 변, 1글자 쳤으면 그 다음 칸의 왼쪽/위쪽
+  // 변 = 방금 채운 칸의 오른쪽/아래쪽 변과 같은 자리. worldToScreen(ccx,ccy)가 그 칸의
+  // 좌상단 모서리를 주므로, 가로 입력이면 x좌표(왼쪽 변)를, 세로 입력이면 y좌표(위쪽 변)를
+  // 그대로 캐럿 위치로 씀. 500ms 주기로 켜짐/꺼짐(일반적인 텍스트 캐럿 깜빡임 속도와 비슷하게).
   // 계속 깜빡이려면 draw()가 주기적으로 다시 호출돼야 하는데, 이건 아래 setInterval(dupHighlight
   // 깜빡임과 같은 포인터)에서 sel이 있을 때도 draw()를 계속 부르도록 같이 처리함.
   if (sel && !selCaptured && Math.floor(now / 500) % 2 === 0) {
@@ -985,10 +988,16 @@ function draw() {
     const typedLen = wordInput.value.length;
     const ccx = sel.x + cdx * typedLen, ccy = sel.y + cdy * typedLen;
     const [csx, csy] = worldToScreen(ccx, ccy);
-    const caretW = Math.max(2, cellSize * 0.05);
-    const caretH = cellSize * 0.58;
+    const caretW = Math.max(2, cellSize * 0.06);
+    const inset = cellSize * 0.12;
     ctx.fillStyle = `hsl(${myHueVal}, 70%, 40%)`;
-    ctx.fillRect(csx + cellSize / 2 - caretW / 2, csy + cellSize / 2 - caretH / 2, caretW, caretH);
+    if (sel.dir === 'h') {
+      // 왼쪽(가로 진행 방향 기준 시작) 변에 붙는 세로 막대
+      ctx.fillRect(csx - caretW / 2, csy + inset, caretW, cellSize - inset * 2);
+    } else {
+      // 위쪽(세로 진행 방향 기준 시작) 변에 붙는 가로 막대
+      ctx.fillRect(csx + inset, csy - caretW / 2, cellSize - inset * 2, caretW);
+    }
   }
 
   // 선택 칸 기준 입력이 진행될 다음 칸(가로면 오른쪽 칸, 세로면 아래쪽 칸) 정중앙에 지금
