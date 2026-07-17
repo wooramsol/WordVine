@@ -1,12 +1,13 @@
 {
   "name": "functions",
-  "description": "낱말바둑 - IP 기반 익명 플레이어 ID 발급 함수",
+  "description": "낱말바둑 - IP 기반 익명 ID 발급 + 회원 가입/로그인 함수",
   "private": true,
   "engines": {
     "node": "20"
   },
   "main": "index.js",
   "dependencies": {
+    "firebase-admin": "^12.1.0",
     "firebase-functions": "^5.0.0"
   }
 }

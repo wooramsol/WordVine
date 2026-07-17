@@ -10,6 +10,14 @@
       {
         "source": "/api/identify",
         "function": "identify"
+      },
+      {
+        "source": "/api/signup",
+        "function": "signup"
+      },
+      {
+        "source": "/api/login",
+        "function": "login"
       }
     ],
     "headers": [

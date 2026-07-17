@@ -20,6 +20,18 @@
       ".read": true,
       ".write": true
     },
+    "memberProfiles": {
+      ".read": true,
+      ".write": false
+    },
+    "members": {
+      ".read": false,
+      ".write": false
+    },
+    "memberNicknames": {
+      ".read": false,
+      ".write": false
+    },
     "$other": {
       ".read": false,
       ".write": false

@@ -256,6 +256,53 @@
        말줄임표로 잘라내지 않음(내용이 잘리면 안 되는 정보라서) */
   }
 
+  /* 최초 접속 시 "멤버 로그인 / 비회원 로그인"을 고르는 화면 + 로그인/회원가입 폼.
+     게임 보드 위를 완전히 덮고(gameOverOverlay와 달리 클릭을 막음) 선택을 마쳐야 사라짐. */
+  #authOverlay {
+    position: fixed; inset: 0; z-index: 70;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(40,36,26,.45); padding: 16px;
+  }
+  #authOverlay.hidden { display: none; }
+  #authCard {
+    background: #fff; border-radius: 18px; padding: 26px 22px;
+    width: 100%; max-width: 320px; box-shadow: 0 8px 28px rgba(0,0,0,.2);
+    max-height: calc(100vh - 32px); overflow-y: auto;
+  }
+  .authTitle { font-size: 18px; font-weight: 800; color: #1a1a1a; margin-bottom: 6px; text-align: center; }
+  .authSub { font-size: 13px; color: #777; margin-bottom: 18px; text-align: center; line-height: 1.5; }
+  .authBtn {
+    display: block; width: 100%; padding: 12px; margin-top: 10px;
+    border-radius: 12px; border: 1px solid #d8d2c4; background: #f5f1e8;
+    color: #444; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .authBtn:hover { filter: brightness(0.97); }
+  .authBtnPrimary { background: #8a7a4f; color: #fff; border-color: #8a7a4f; }
+  #authLoginView.hidden, #authSignupView.hidden, #authChoiceView.hidden { display: none; }
+  #authLoginView input, #authSignupView input {
+    display: block; width: 100%; padding: 11px 12px; margin-top: 10px;
+    border-radius: 10px; border: 1px solid #d8d2c4; font-size: 14px; outline: none;
+  }
+  #authLoginView input:focus, #authSignupView input:focus { border-color: #8a7a4f; }
+  .authErr { color: #b23c3c; font-size: 12px; margin-top: 8px; min-height: 14px; }
+  .authSwitchLine { text-align: center; font-size: 12px; color: #888; margin-top: 12px; }
+  .authSwitchLine a { color: #8a7a4f; font-weight: 700; text-decoration: none; }
+  .authSwitchLine a:hover { text-decoration: underline; }
+  .authIconLabel { font-size: 12px; color: #777; margin-top: 14px; margin-bottom: 6px; }
+  #authIconGrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .authIconBtn {
+    aspect-ratio: 1; border-radius: 10px; border: 2px solid transparent; background: #f5f1e8;
+    font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .authIconBtn.sel { border-color: #8a7a4f; background: #eee7d8; }
+  /* 접속 상태 태그 옆 로그아웃 버튼 — 멤버로 로그인했을 때만 보임 */
+  #memberLogoutBtn {
+    font-size: 12px; padding: 6px 10px; border-radius: 20px;
+    background: #e5e0d3; color: #6b5e3f; border: none; cursor: pointer;
+  }
+  #memberLogoutBtn.hidden { display: none; }
+  #memberLogoutBtn:hover { background: #d8d2c0; }
+
   @media (max-width: 640px) {
     /* 주소창/노치 등 모바일 상단 UI에 가려 잘리지 않도록 더 아래로, safe-area까지 고려 */
     #toast { bottom: auto; top: calc(92px + env(safe-area-inset-top, 0px)); }
@@ -344,12 +391,13 @@
 </div>
 <div id="topRight">
   <div id="userCountTag"><span id="userCountDot"></span><span id="userCountText">1명 접속 중</span></div>
+  <button id="memberLogoutBtn" type="button" class="hidden">로그아웃</button>
 </div>
 <div id="leaderboard" class="hidden">
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.8.5</div>
+<div id="verTagBottom">v1.9.0</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -364,8 +412,43 @@
 
 <div id="toast"></div>
 
+<!-- 최초 접속 시 멤버 로그인/비회원 로그인을 고르는 화면. 멤버 로그인은 로그인/회원가입
+     폼으로 이어짐. 비회원을 고르면 기존과 동일하게(IP 기반 익명 ID + 과일) 바로 시작함. -->
+<div id="authOverlay" class="hidden">
+  <div id="authCard">
+    <div id="authChoiceView">
+      <div class="authTitle">낱말바둑</div>
+      <div class="authSub">멤버로 로그인하거나<br>비회원으로 바로 시작할 수 있어요.</div>
+      <button type="button" class="authBtn authBtnPrimary" id="authChooseMemberBtn">멤버 로그인</button>
+      <button type="button" class="authBtn" id="authChooseGuestBtn">비회원으로 시작</button>
+    </div>
+    <form id="authLoginView" class="hidden">
+      <div class="authTitle">멤버 로그인</div>
+      <input type="text" id="authLoginNickname" placeholder="닉네임" autocomplete="username" maxlength="10">
+      <input type="password" id="authLoginPassword" placeholder="비밀번호" autocomplete="current-password" maxlength="30">
+      <div class="authErr" id="authLoginErr"></div>
+      <button type="submit" class="authBtn authBtnPrimary">로그인</button>
+      <div class="authSwitchLine">계정이 없으신가요? <a href="#" id="authGoSignupLink">회원가입</a></div>
+      <div class="authSwitchLine"><a href="#" id="authLoginBackLink">뒤로</a></div>
+    </form>
+    <form id="authSignupView" class="hidden">
+      <div class="authTitle">회원가입</div>
+      <input type="text" id="authSignupNickname" placeholder="닉네임 (한글/영문/숫자 2~10자)" autocomplete="username" maxlength="10">
+      <input type="password" id="authSignupPassword" placeholder="비밀번호 (4자 이상)" autocomplete="new-password" maxlength="30">
+      <input type="password" id="authSignupPassword2" placeholder="비밀번호 확인" autocomplete="new-password" maxlength="30">
+      <div class="authIconLabel">아이콘 선택</div>
+      <div id="authIconGrid"></div>
+      <div class="authErr" id="authSignupErr"></div>
+      <button type="submit" class="authBtn authBtnPrimary">가입하기</button>
+      <div class="authSwitchLine">이미 계정이 있으신가요? <a href="#" id="authGoLoginLink">로그인</a></div>
+      <div class="authSwitchLine"><a href="#" id="authSignupBackLink">뒤로</a></div>
+    </form>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>
 'use strict';
@@ -781,7 +864,29 @@ async function claimFruitIndex(id) {
     }
   } catch (e) { console.log('과일 배정 실패(무시하고 해시 폴백 사용):', e.message); }
 }
+// 회원가입 때 고르는 아이콘 목록 — 과일(비회원)과는 별개 세트라 한눈에 구분됨.
+// 이름은 직접 정한 닉네임을 쓰므로 여기엔 이모지+고정 색상(hue)만 있으면 됨.
+// functions/index.js의 ICON_COUNT(24)와 반드시 개수가 같아야 함 — 서버가 iconIdx
+// 범위를 검증할 때 쓰는 값이라, 여기서 아이콘을 추가/삭제하면 그쪽도 같이 고쳐야 함.
+const ICONS = [
+  { emoji: '\u{1F98A}', hue: 18 },  { emoji: '\u{1F42F}', hue: 30 },  { emoji: '\u{1F981}', hue: 42 },
+  { emoji: '\u{1F436}', hue: 54 },  { emoji: '\u{1F43B}', hue: 66 },  { emoji: '\u{1F43C}', hue: 78 },
+  { emoji: '\u{1F428}', hue: 90 },  { emoji: '\u{1F430}', hue: 102 }, { emoji: '\u{1F438}', hue: 114 },
+  { emoji: '\u{1F422}', hue: 126 }, { emoji: '\u{1F994}', hue: 150 }, { emoji: '\u{1F984}', hue: 174 },
+  { emoji: '\u{1F433}', hue: 198 }, { emoji: '\u{1F419}', hue: 210 }, { emoji: '\u{1F98B}', hue: 222 },
+  { emoji: '\u{1F427}', hue: 234 }, { emoji: '\u{1F989}', hue: 246 }, { emoji: '\u{1F43A}', hue: 258 },
+  { emoji: '\u{1F409}', hue: 270 }, { emoji: '\u{1F996}', hue: 282 }, { emoji: '\u{2B50}', hue: 300 },
+  { emoji: '\u{1F319}', hue: 312 }, { emoji: '\u{26A1}', hue: 330 },  { emoji: '\u{1F388}', hue: 342 },
+];
+// owner(clientId=uid) -> 회원 프로필({nickname, iconIdx}). memberProfiles 전체를 실시간
+// 구독해서 채워짐(boot() 참고). 이 맵에 있으면 회원, 없으면(기존처럼) 과일 배정 대상.
+let ownerMemberProfile = new Map();
 function fruitOf(owner) {
+  const mp = ownerMemberProfile.get(owner);
+  if (mp) {
+    const icon = ICONS[mp.iconIdx] || ICONS[0];
+    return { name: mp.nickname, hue: icon.hue, emoji: icon.emoji };
+  }
   if (ownerFruitIndex.has(owner)) return FRUITS[ownerFruitIndex.get(owner)];
   return FRUITS[hashStr(owner) % FRUITS.length]; // 서버 배정이 아직 안 온 아주 짧은 순간의 임시값
 }
@@ -2224,10 +2329,143 @@ fetch('words.txt')
   .catch(() => { showToast('사전 로드 실패 — 새로고침 해주세요'); });
 
 // ---------- 부트스트랩: IP 기반 플레이어 ID 확정 후 Firebase 연결 ----------
-async function boot() {
-  clientId = await fetchClientId();
+// 회원 로그인 여부 — true면 clientId가 (IP 해시가 아니라) Firebase Auth uid이고,
+// 과일 배정 대신 memberProfiles의 닉네임/아이콘으로 표시됨.
+let isMemberMode = false;
 
+const authOverlayEl = document.getElementById('authOverlay');
+const authChoiceViewEl = document.getElementById('authChoiceView');
+const authLoginViewEl = document.getElementById('authLoginView');
+const authSignupViewEl = document.getElementById('authSignupView');
+const memberLogoutBtn = document.getElementById('memberLogoutBtn');
+
+function authShowView(view) {
+  authChoiceViewEl.classList.toggle('hidden', view !== 'choice');
+  authLoginViewEl.classList.toggle('hidden', view !== 'login');
+  authSignupViewEl.classList.toggle('hidden', view !== 'signup');
+}
+
+let authSelectedIconIdx = 0;
+function buildAuthIconGrid() {
+  const grid = document.getElementById('authIconGrid');
+  grid.innerHTML = '';
+  ICONS.forEach((icon, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'authIconBtn' + (idx === authSelectedIconIdx ? ' sel' : '');
+    btn.textContent = icon.emoji;
+    btn.addEventListener('click', () => {
+      authSelectedIconIdx = idx;
+      [...grid.children].forEach((c, i) => c.classList.toggle('sel', i === idx));
+    });
+    grid.appendChild(btn);
+  });
+}
+
+// 최초 접속 시 "멤버 로그인 / 비회원 로그인" 선택 + 로그인/회원가입 폼을 보여주고,
+// 선택이 끝나면 { mode: 'guest' } 또는 { mode: 'member', uid } 로 resolve됨.
+function showAuthChoiceFlow() {
+  return new Promise(resolve => {
+    authOverlayEl.classList.remove('hidden');
+    authShowView('choice');
+    buildAuthIconGrid();
+
+    document.getElementById('authChooseGuestBtn').onclick = () => {
+      authOverlayEl.classList.add('hidden');
+      resolve({ mode: 'guest' });
+    };
+    document.getElementById('authChooseMemberBtn').onclick = () => authShowView('login');
+    document.getElementById('authLoginBackLink').onclick = e => { e.preventDefault(); authShowView('choice'); };
+    document.getElementById('authSignupBackLink').onclick = e => { e.preventDefault(); authShowView('choice'); };
+    document.getElementById('authGoSignupLink').onclick = e => { e.preventDefault(); authShowView('signup'); };
+    document.getElementById('authGoLoginLink').onclick = e => { e.preventDefault(); authShowView('login'); };
+
+    authLoginViewEl.onsubmit = async e => {
+      e.preventDefault();
+      const errEl = document.getElementById('authLoginErr');
+      errEl.textContent = '';
+      const nickname = document.getElementById('authLoginNickname').value.trim();
+      const password = document.getElementById('authLoginPassword').value;
+      if (!nickname || !password) { errEl.textContent = '닉네임과 비밀번호를 입력해주세요.'; return; }
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nickname, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) { errEl.textContent = data.error || '로그인에 실패했어요.'; return; }
+        const cred = await firebase.auth().signInWithCustomToken(data.token);
+        authOverlayEl.classList.add('hidden');
+        resolve({ mode: 'member', uid: cred.user.uid });
+      } catch (err) {
+        errEl.textContent = '로그인 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+      }
+    };
+
+    authSignupViewEl.onsubmit = async e => {
+      e.preventDefault();
+      const errEl = document.getElementById('authSignupErr');
+      errEl.textContent = '';
+      const nickname = document.getElementById('authSignupNickname').value.trim();
+      const password = document.getElementById('authSignupPassword').value;
+      const password2 = document.getElementById('authSignupPassword2').value;
+      if (!/^[가-힣A-Za-z0-9]{2,10}$/.test(nickname)) { errEl.textContent = '닉네임은 한글/영문/숫자 2~10자로 입력해주세요.'; return; }
+      if (password.length < 4) { errEl.textContent = '비밀번호는 4자 이상으로 입력해주세요.'; return; }
+      if (password !== password2) { errEl.textContent = '비밀번호가 서로 달라요.'; return; }
+      try {
+        const res = await fetch('/api/signup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nickname, password, iconIdx: authSelectedIconIdx }),
+        });
+        const data = await res.json();
+        if (!res.ok) { errEl.textContent = data.error || '회원가입에 실패했어요.'; return; }
+        const cred = await firebase.auth().signInWithCustomToken(data.token);
+        authOverlayEl.classList.add('hidden');
+        resolve({ mode: 'member', uid: cred.user.uid });
+      } catch (err) {
+        errEl.textContent = '가입 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+      }
+    };
+  });
+}
+
+// 접속할 때마다 이 순서로 신원을 확정함:
+// 1) Firebase Auth 세션이 이미 남아있으면(예전에 멤버로 로그인했던 브라우저) 자동으로 그 회원으로
+// 2) 아니고 예전에 "비회원으로 시작"을 고른 적 있으면(localStorage) 조용히 기존 방식으로
+// 3) 둘 다 아니면(최초 접속) 선택 화면을 띄워서 물어봄
+async function resolveIdentity() {
+  const authUser = await new Promise(resolve => {
+    const unsub = firebase.auth().onAuthStateChanged(u => { unsub(); resolve(u); });
+  });
+  if (authUser) {
+    isMemberMode = true;
+    memberLogoutBtn.classList.remove('hidden');
+    return authUser.uid;
+  }
+
+  let guestChosen = false;
+  try { guestChosen = localStorage.getItem('wb-guestChosen') === '1'; } catch {}
+  if (guestChosen) return await fetchClientId();
+
+  const result = await showAuthChoiceFlow();
+  if (result.mode === 'guest') {
+    try { localStorage.setItem('wb-guestChosen', '1'); } catch {}
+    return await fetchClientId();
+  }
+  isMemberMode = true;
+  memberLogoutBtn.classList.remove('hidden');
+  return result.uid;
+}
+
+memberLogoutBtn.addEventListener('click', async () => {
+  try { await firebase.auth().signOut(); } catch {}
+  location.reload();
+});
+
+async function boot() {
   firebase.initializeApp(window.FIREBASE_CONFIG);
+  clientId = await resolveIdentity();
+
   const db = firebase.database();
   boardRef = db.ref('board');
 
@@ -2250,7 +2488,9 @@ async function boot() {
       const lastSeenRef = db.ref('playerLastSeen/' + clientId);
       lastSeenRef.set(firebase.database.ServerValue.TIMESTAMP);
       lastSeenRef.onDisconnect().set(firebase.database.ServerValue.TIMESTAMP);
-      claimFruitIndex(clientId); // 접속 즉시 서버에 과일 확정 배정 요청(이미 있으면 아무 일도 안 함)
+      // 회원은 과일이 아니라 직접 고른 닉네임/아이콘(memberProfiles)으로 표시되므로
+      // 과일 자리를 배정받을 필요가 없음 — 8자리뿐인 과일 슬롯을 아낌
+      if (!isMemberMode) claimFruitIndex(clientId); // 접속 즉시 서버에 과일 확정 배정 요청(이미 있으면 아무 일도 안 함)
     }
   });
 
@@ -2258,6 +2498,13 @@ async function boot() {
   db.ref('playerFruit').on('value', snap => {
     const val = snap.val() || {};
     ownerFruitIndex = new Map(Object.entries(val));
+    updateLeaderboard();
+    draw();
+  });
+
+  // memberProfiles 전체를 실시간 구독 — 회원 닉네임/아이콘은 fruitOf()에서 과일보다 우선함
+  db.ref('memberProfiles').on('value', snap => {
+    ownerMemberProfile = new Map(Object.entries(snap.val() || {}));
     updateLeaderboard();
     draw();
   });
