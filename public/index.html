@@ -462,7 +462,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.13</div>
+<div id="verTagBottom">v1.9.14</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -529,7 +529,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.13'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.14'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2460,9 +2460,15 @@ function hidePageLoadingOverlay() { pageLoadingOverlayEl.classList.add('hidden')
 document.getElementById('pageLoadingRetryBtn').addEventListener('click', () => location.reload());
 // 안전장치: 접속 확인이나 보드 첫 동기화가 예상보다 오래 걸리면(불안정한 네트워크,
 // 브라우저 확장 프로그램 간섭 등으로 로딩이 멈춰버리는 경우) 스피너만 무한정 돌지 않고
-// 8초 뒤 "새로고침" 버튼을 같이 보여줌 — 사용자가 무한 로딩 화면에 갇히지 않게 함
+// 8초 뒤 "새로고침" 버튼을 같이 보여줌 — 사용자가 무한 로딩 화면에 갇히지 않게 함.
+// 이때 실시간 연결(connected, boot() 참고)이 아예 안 된 상태라면 "네트워크 문제"라고
+// 좀 더 구체적으로 안내함(막연히 "오래 걸린다"보다 원인을 짐작할 수 있게).
+const pageLoadingRetryMsgEl = document.getElementById('pageLoadingRetryMsg');
 setTimeout(() => {
   if (!pageLoadingOverlayEl.classList.contains('hidden')) {
+    if (!connected) {
+      pageLoadingRetryMsgEl.textContent = '네트워크에 연결하지 못했어요. Wi-Fi/데이터 연결을 확인해주세요';
+    }
     pageLoadingRetryEl.classList.remove('hidden');
   }
 }, 8000);
