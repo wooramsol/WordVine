@@ -19,6 +19,14 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
+  /* 드래그(팬/스와이프)나 칸 클릭 중에 화면의 글자(칸 안 낱말, 리더보드, 안내문구 등)가
+     브라우저 기본 텍스트 선택(파란 하이라이트)으로 긁히는 걸 막음 — html/body에 걸어서
+     자식 전체에 상속되게 함(user-select는 상속 속성). wordInput은 화면에 안 보이는 투명
+     입력창이라 선택 가능 여부가 타이핑/IME 조합에는 전혀 영향을 주지 않음.
+     -webkit-touch-callout도 함께 꺼서 iOS에서 길게 눌렀을 때 뜨는 복사/공유 메뉴도 막음. */
+  html, body {
+    user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  }
   body { background: #f5f1e8; }
   #board { display: block; cursor: grab; touch-action: none; }
   #board.dragging { cursor: grabbing; }
@@ -341,7 +349,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.6.0</div>
+<div id="verTagBottom">v1.6.1</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
