@@ -349,7 +349,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.6.2</div>
+<div id="verTagBottom">v1.6.3</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -974,38 +974,42 @@ function draw() {
     cellBox(sx, sy, `hsla(${myHueVal}, 70%, 55%, .2)`, `hsl(${myHueVal}, 65%, 45%)`, 2);
   }
 
-  // 웹(비터치)에서는 선택 칸 기준 입력이 진행될 다음 칸(가로면 오른쪽 칸, 세로면 아래쪽 칸)
-  // 정중앙에 지금 입력 방향(→ 가로 / ↓ 세로)을 화살표로 보여줌 — 버튼 없이도 방향이 뭔지
-  // 바로 보이게. 입력이 시작되면(글자를 하나라도 치면) preview가 그 칸을 채우기 시작하므로
-  // 화살표는 사라짐(겹치지 않게 함께 숨김)
-  if (sel && !selCaptured && !HAS_TOUCH) {
+  // 선택 칸 기준 입력이 진행될 다음 칸(가로면 오른쪽 칸, 세로면 아래쪽 칸) 정중앙에 지금
+  // 입력 방향(→ 가로 / ↓ 세로)을 화살표로 보여줌 — 버튼 없이도 방향이 뭔지 바로 보이게.
+  // 웹/모바일 둘 다 보여줌(모바일은 예전엔 화살표 없이 modeBadge 텍스트만 있었는데, 웹처럼
+  // 칸 안에도 화살표가 보이길 원해서 추가함). Tab 알약 배지는 물리 Tab 키가 있는 웹에서만
+  // 의미가 있으므로 그대로 웹 전용으로 남김(모바일은 modeBadge를 탭해서 전환).
+  // 입력이 시작되면(글자를 하나라도 치면) preview가 그 칸을 채우기 시작하므로 화살표는 사라짐
+  if (sel && !selCaptured) {
     const [ssx, ssy] = worldToScreen(sel.x, sel.y);
-    const tabCx = ssx + cellSize / 2; // 선택 칸 윗변의 가로 중앙
     ctx.save();
     ctx.textAlign = 'center';
-    // Tab 힌트: 선택 칸 "윗변" 중앙에 걸치도록(세로 중심을 윗변 라인에 맞춤) 알약(태그) 배경 + 텍스트
-    // 글자를 입력하기 시작해도(wordInput.value가 생겨도) 방향을 계속 알 수 있도록 항상 유지함
-    const tabFontSize = Math.max(10, Math.floor(cellSize * 0.2));
-    ctx.font = `700 ${tabFontSize}px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
-    const tabLabel = 'Tab';
-    const tabTextW = ctx.measureText(tabLabel).width;
-    const tabPadX = tabFontSize * 0.55, tabPadY = tabFontSize * 0.42;
-    const tabW = tabTextW + tabPadX * 2, tabH = tabFontSize + tabPadY * 2;
-    const tabCy = ssy; // 칸 윗변 라인에 세로 중심을 맞춰 절반씩 걸치게
-    const tabX = tabCx - tabW / 2, tabY = tabCy - tabH / 2;
-    const tabR = tabH / 2;
-    ctx.beginPath();
-    ctx.moveTo(tabX + tabR, tabY);
-    ctx.arcTo(tabX + tabW, tabY, tabX + tabW, tabY + tabH, tabR);
-    ctx.arcTo(tabX + tabW, tabY + tabH, tabX, tabY + tabH, tabR);
-    ctx.arcTo(tabX, tabY + tabH, tabX, tabY, tabR);
-    ctx.arcTo(tabX, tabY, tabX + tabW, tabY, tabR);
-    ctx.closePath();
-    ctx.fillStyle = `hsl(${myHueVal}, 60%, 38%)`;
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(tabLabel, tabCx, tabCy + 1);
+    if (!HAS_TOUCH) {
+      const tabCx = ssx + cellSize / 2; // 선택 칸 윗변의 가로 중앙
+      // Tab 힌트: 선택 칸 "윗변" 중앙에 걸치도록(세로 중심을 윗변 라인에 맞춤) 알약(태그) 배경 + 텍스트
+      // 글자를 입력하기 시작해도(wordInput.value가 생겨도) 방향을 계속 알 수 있도록 항상 유지함
+      const tabFontSize = Math.max(10, Math.floor(cellSize * 0.2));
+      ctx.font = `700 ${tabFontSize}px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
+      const tabLabel = 'Tab';
+      const tabTextW = ctx.measureText(tabLabel).width;
+      const tabPadX = tabFontSize * 0.55, tabPadY = tabFontSize * 0.42;
+      const tabW = tabTextW + tabPadX * 2, tabH = tabFontSize + tabPadY * 2;
+      const tabCy = ssy; // 칸 윗변 라인에 세로 중심을 맞춰 절반씩 걸치게
+      const tabX = tabCx - tabW / 2, tabY = tabCy - tabH / 2;
+      const tabR = tabH / 2;
+      ctx.beginPath();
+      ctx.moveTo(tabX + tabR, tabY);
+      ctx.arcTo(tabX + tabW, tabY, tabX + tabW, tabY + tabH, tabR);
+      ctx.arcTo(tabX + tabW, tabY + tabH, tabX, tabY + tabH, tabR);
+      ctx.arcTo(tabX, tabY + tabH, tabX, tabY, tabR);
+      ctx.arcTo(tabX, tabY, tabX + tabW, tabY, tabR);
+      ctx.closePath();
+      ctx.fillStyle = `hsl(${myHueVal}, 60%, 38%)`;
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tabLabel, tabCx, tabCy + 1);
+    }
     // 방향 화살표는 입력을 시작하면(다음 칸이 미리보기 글자로 채워지기 시작하므로) 겹치지 않게 숨김
     if (!wordInput.value) {
       const nx = sel.x + (sel.dir === 'h' ? 1 : 0);
