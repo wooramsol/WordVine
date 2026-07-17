@@ -315,6 +315,30 @@
   #guestSwitchBtn.hidden { display: none; }
   #guestSwitchBtn:hover { background: #d8d2c0; }
 
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* 접속 확인/사전·보드 첫 동기화를 기다리는 동안 화면 전체를 덮는 로딩 스피너 —
+     멤버/비회원 선택 화면이 뜨는 순간(showAuthChoiceFlow) 또는 보드 첫 데이터가
+     도착하는 순간(boot()의 wasFirst) 중 먼저 오는 쪽에서 사라짐 */
+  #pageLoadingOverlay {
+    position: fixed; inset: 0; z-index: 65;
+    display: flex; align-items: center; justify-content: center;
+    background: #f5f1e8;
+  }
+  #pageLoadingOverlay.hidden { display: none; }
+  .pageSpinner {
+    width: 36px; height: 36px;
+    border: 4px solid #e2dbc8; border-top-color: #8a7a4f;
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  /* 로그인/가입 버튼 안에서 요청 진행 중일 때 도는 작은 스피너 — 버튼이 항상
+     authBtnPrimary(진한 배경+흰 글씨)라 흰색 스피너로 고정 */
+  .btnSpinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.45); border-top-color: #fff;
+    border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: -2px; margin-right: 6px;
+  }
+
   @media (max-width: 640px) {
     /* 주소창/노치 등 모바일 상단 UI에 가려 잘리지 않도록 더 아래로, safe-area까지 고려 */
     #toast { bottom: auto; top: calc(92px + env(safe-area-inset-top, 0px)); }
@@ -390,6 +414,10 @@
 </script>
 <canvas id="board"></canvas>
 
+<!-- 접속 확인 + 보드 첫 데이터 동기화를 기다리는 동안 보여주는 로딩 스피너.
+     멤버/비회원 선택 화면이 뜨거나 보드 데이터가 도착하면 사라짐(resolveIdentity/boot 참고) -->
+<div id="pageLoadingOverlay"><div class="pageSpinner"></div></div>
+
 <div id="brand">낱말바둑<span id="brandHelpIcon">ⓘ</span></div>
 <div id="infoPanelBackdrop" class="hidden"></div>
 <div id="infoPanel" class="hidden">
@@ -413,7 +441,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.4</div>
+<div id="verTagBottom">v1.9.5</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -2367,6 +2395,9 @@ fetch('words.txt')
 // 과일 배정 대신 memberProfiles의 닉네임/아이콘으로 표시됨.
 let isMemberMode = false;
 
+const pageLoadingOverlayEl = document.getElementById('pageLoadingOverlay');
+function hidePageLoadingOverlay() { pageLoadingOverlayEl.classList.add('hidden'); }
+
 const authOverlayEl = document.getElementById('authOverlay');
 const authChoiceViewEl = document.getElementById('authChoiceView');
 const authLoginViewEl = document.getElementById('authLoginView');
@@ -2401,6 +2432,7 @@ function buildAuthIconGrid() {
 // 선택이 끝나면 { mode: 'guest' } 또는 { mode: 'member', uid } 로 resolve됨.
 function showAuthChoiceFlow() {
   return new Promise(resolve => {
+    hidePageLoadingOverlay(); // 선택 화면이 뜨는 순간부터는 로딩 스피너가 아니라 이 화면이 곧 "로딩 중" 표시
     authOverlayEl.classList.remove('hidden');
     authShowView('choice');
     buildAuthIconGrid();
@@ -2415,6 +2447,20 @@ function showAuthChoiceFlow() {
     document.getElementById('authGoSignupLink').onclick = e => { e.preventDefault(); authShowView('signup'); };
     document.getElementById('authGoLoginLink').onclick = e => { e.preventDefault(); authShowView('login'); };
 
+    // 요청이 오가는 동안 제출 버튼에 스피너를 띄우고 비활성화함 — 응답이 늦게 와도
+    // "반응이 없다"고 오해하지 않게 하고, 기다리는 동안 중복 클릭(중복 요청)도 막아줌
+    function setSubmitBusy(formEl, busy, busyLabel) {
+      const btn = formEl.querySelector('button[type="submit"]');
+      if (busy) {
+        btn.dataset.origLabel = btn.textContent;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="btnSpinner"></span>${busyLabel}`;
+      } else {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.origLabel || btn.textContent;
+      }
+    }
+
     authLoginViewEl.onsubmit = async e => {
       e.preventDefault();
       const errEl = document.getElementById('authLoginErr');
@@ -2422,6 +2468,7 @@ function showAuthChoiceFlow() {
       const nickname = document.getElementById('authLoginNickname').value.trim();
       const password = document.getElementById('authLoginPassword').value;
       if (!nickname || !password) { errEl.textContent = '닉네임과 비밀번호를 입력해주세요.'; return; }
+      setSubmitBusy(authLoginViewEl, true, '로그인 중...');
       try {
         const res = await fetch('/api/login', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2433,6 +2480,8 @@ function showAuthChoiceFlow() {
         resolve({ mode: 'member', uid: data.uid });
       } catch (err) {
         errEl.textContent = '로그인 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+      } finally {
+        setSubmitBusy(authLoginViewEl, false);
       }
     };
 
@@ -2446,6 +2495,7 @@ function showAuthChoiceFlow() {
       if (!/^[가-힣A-Za-z0-9]{2,10}$/.test(nickname)) { errEl.textContent = '닉네임은 한글/영문/숫자 2~10자로 입력해주세요.'; return; }
       if (password.length < 4) { errEl.textContent = '비밀번호는 4자 이상으로 입력해주세요.'; return; }
       if (password !== password2) { errEl.textContent = '비밀번호가 서로 달라요.'; return; }
+      setSubmitBusy(authSignupViewEl, true, '가입 중...');
       try {
         const res = await fetch('/api/signup', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2457,6 +2507,8 @@ function showAuthChoiceFlow() {
         resolve({ mode: 'member', uid: data.uid });
       } catch (err) {
         errEl.textContent = '가입 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+      } finally {
+        setSubmitBusy(authSignupViewEl, false);
       }
     };
   });
@@ -2641,7 +2693,7 @@ async function boot() {
     updateStats();
     updateLeaderboard();
     checkGameOver();
-    if (wasFirst) { fitBoard(); playGameStart(); } // 첫 로드: 단어뭉치를 화면 가운데 적절한 크기로 + 시작음
+    if (wasFirst) { fitBoard(); playGameStart(); hidePageLoadingOverlay(); } // 첫 로드: 단어뭉치를 화면 가운데 적절한 크기로 + 시작음 + 로딩 스피너 숨김
     else draw();
   });
 }
