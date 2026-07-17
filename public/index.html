@@ -336,7 +336,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.5.0</div>
+<div id="verTagBottom">v1.5.1</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -1363,11 +1363,12 @@ function updateModeBadge() {
   modeBadge.textContent = sel.dir === 'h' ? '가로' : '세로';
 }
 
-// 한글(완성 음절 가-힣 + 조합 중인 자모 ㄱ-ㅎ/ㅏ-ㅣ), 영문(A-Za-z), 숫자(0-9)는 입력창에
-// 타이핑되는 것 자체는 허용하되(글자가 지워지지 않고 그대로 보임), 그 외(공백, 특수문자 등)는
-// 즉시 걸러냄. 낱말바둑은 한글 낱말 퍼즐이라 영문 단어는 실제로 칸에 "놓을"(제출/배치) 수는
-// 없음 — 그건 checkPreview()/submit()에서 별도로 막음(HAS_ENGLISH_RE 참고). 숫자만 섞인
-// 경우는 예외적으로 채팅처럼 자유롭게 놓을 수 있게 남겨둠(단어잇기·포획엔 관여 안 함).
+// 한글(완성 음절 가-힣 + 조합 중인 자모 ㄱ-ㅎ/ㅏ-ㅣ), 영문(A-Za-z), 숫자(0-9), 물음표(?)와
+// 느낌표(!)는 입력창에 타이핑되는 것 자체는 허용하되(글자가 지워지지 않고 그대로 보임), 그 외
+// (공백, 다른 특수문자 등)는 즉시 걸러냄. 낱말바둑은 한글 낱말 퍼즐이라 영문 단어와 마찬가지로
+// 물음표/느낌표가 섞인 입력도 실제로 칸에 "놓을"(제출/배치) 수는 없음 — 그건 checkPreview()/
+// submit()에서 별도로 막음(HAS_ENGLISH_RE, HAS_PUNCT_RE 참고). 숫자만 섞인 경우는 예외적으로
+// 채팅처럼 자유롭게 놓을 수 있게 남겨둠(단어잇기·포획엔 관여 안 함).
 // 공백은 예전엔 채팅용으로 허용했었는데, "영문/숫자를 그냥 타이핑만 해도 화면에 놓아지는 것
 // 처럼 보인다"는 혼란을 줄이기 위해 공백은 아예 입력 자체를 막기로 함.
 // 예전엔 걸러지는 문자가 들어와도 그냥 checkPreview()에서 조용히 막히기만 하고 화면엔 아무
@@ -1375,16 +1376,17 @@ function updateModeBadge() {
 // 먹는" 것처럼 보였음 — 이제 즉시 지우고 토스트로 안내함.
 // e.isComposing이 true인 동안(한글 조합 중)은 절대 건드리지 않아야 조합이 안 끊어짐.
 const HAS_ENGLISH_RE = /[A-Za-z]/; // 영문이 하나라도 섞이면 실제 배치(제출)는 항상 막음 — 타이핑만 허용
-const CHAT_CHARS_RE = /[0-9]/; // 숫자만 섞이면(영문 없이) 사전 검증 없이 채팅처럼 배치 허용
+const HAS_PUNCT_RE = /[?!]/; // 물음표/느낌표가 하나라도 섞여도 마찬가지로 배치는 항상 막음 — 타이핑만 허용
+const CHAT_CHARS_RE = /[0-9]/; // 숫자만 섞이면(영문·물음표·느낌표 없이) 사전 검증 없이 채팅처럼 배치 허용
 let invalidCharNotified = false;
 wordInput.addEventListener('input', e => {
   playTypeTick();
   if (!e.isComposing) {
-    const cleaned = wordInput.value.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9]/g, '');
+    const cleaned = wordInput.value.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9?!]/g, '');
     if (cleaned !== wordInput.value) {
       wordInput.value = cleaned;
       if (!invalidCharNotified) {
-        showToast('한글, 영문, 숫자만 입력할 수 있어요. (띄어쓰기 불가)');
+        showToast('한글, 영문, 숫자, ?, !만 입력할 수 있어요. (띄어쓰기 불가)');
         invalidCharNotified = true;
       }
     } else {
@@ -1458,13 +1460,14 @@ function checkPreview() {
     draw();
     return;
   }
-  // 영문이 하나라도 섞이면(한글/숫자와 섞여 있어도) 실제로 칸에 놓는 것("입력")은 항상 막음
-  // — 낱말바둑은 한글 낱말 퍼즐이라 영문 단어는 취급하지 않음. 대신 타이핑 자체는 막지 않고
-  // (입력창에서 글자가 지워지지 않음) 지금 입력 중인 글자를 칸 미리보기로 보여만 주고,
-  // submitEnabled는 항상 false로 둬서 Enter를 눌러도 절대 놓이지 않게 함.
-  if (HAS_ENGLISH_RE.test(typed)) {
+  // 영문이나 물음표(?)/느낌표(!)가 하나라도 섞이면(한글/숫자와 섞여 있어도) 실제로 칸에
+  // 놓는 것("입력")은 항상 막음 — 낱말바둑은 한글 낱말 퍼즐이라 영문 단어나 문장부호는
+  // 취급하지 않음. 대신 타이핑 자체는 막지 않고(입력창에서 글자가 지워지지 않음) 지금
+  // 입력 중인 글자를 칸 미리보기로 보여만 주고, submitEnabled는 항상 false로 둬서 Enter를
+  // 눌러도 절대 놓이지 않게 함.
+  if (HAS_ENGLISH_RE.test(typed) || HAS_PUNCT_RE.test(typed)) {
     preview = { startX: sel.x, startY: sel.y, word: typed, conflictTyped: -1, typedFrom: 0, typedLen: typed.length };
-    setMsg('영문 단어는 놓을 수 없어요. 한글 낱말만 배치할 수 있어요.');
+    setMsg('영문/물음표/느낌표가 섞인 낱말은 놓을 수 없어요. 한글 낱말만 배치할 수 있어요.');
     submitEnabled = false;
     if (HAS_TOUCH) ensureVisible(); else draw();
     return;
@@ -1548,10 +1551,10 @@ async function submit() {
   }
   const typed = wordInput.value.trim();
   if (!typed) return;
-  // 영문이 섞인 입력은 타이핑(미리보기)까지만 허용하고 실제 배치는 절대 하지 않음 —
-  // checkPreview()에서 submitEnabled를 계속 false로 두지만, 혹시라도 Enter가 그 사이를
-  // 뚫고 들어올 가능성에 대비해 여기서도 한 번 더 확실히 막음
-  if (HAS_ENGLISH_RE.test(typed)) return;
+  // 영문이나 물음표(?)/느낌표(!)가 섞인 입력은 타이핑(미리보기)까지만 허용하고 실제 배치는
+  // 절대 하지 않음 — checkPreview()에서 submitEnabled를 계속 false로 두지만, 혹시라도
+  // Enter가 그 사이를 뚫고 들어올 가능성에 대비해 여기서도 한 번 더 확실히 막음
+  if (HAS_ENGLISH_RE.test(typed) || HAS_PUNCT_RE.test(typed)) return;
   const isChat = CHAT_CHARS_RE.test(typed);
   if (!isChat && !/^[가-힣]+$/.test(typed)) return;
   // 채팅 모드는 사전이 필요 없으므로 DICT 로딩 여부와 무관하게 진행
