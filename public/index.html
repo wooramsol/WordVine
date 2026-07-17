@@ -349,7 +349,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.8.4</div>
+<div id="verTagBottom">v1.8.5</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -995,9 +995,11 @@ function draw() {
     const caretW = Math.max(2, cellSize * 0.06);
     const inset = cellSize * 0.12;
     const edgeGap = cellSize / 5; // 칸 너비의 1/5만큼 경계선에서 안쪽으로 띄움
+    const barH = (cellSize - inset * 2) * 0.8; // 이전 높이의 8/10
+    const barY = csy + (cellSize - barH) / 2;
     ctx.fillStyle = `hsl(${myHueVal}, 70%, 40%)`;
     const barX = atStart ? (csx + edgeGap) : (csx + cellSize - edgeGap - caretW);
-    ctx.fillRect(barX, csy + inset, caretW, cellSize - inset * 2);
+    ctx.fillRect(barX, barY, caretW, barH);
   }
 
   // 선택 칸 기준 입력이 진행될 다음 칸(가로면 오른쪽 칸, 세로면 아래쪽 칸) 정중앙에 지금
