@@ -405,7 +405,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.1</div>
+<div id="verTagBottom">v1.9.2</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -456,7 +456,6 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="firebase-config.js"></script>
 <script>
 'use strict';
@@ -2403,9 +2402,8 @@ function showAuthChoiceFlow() {
         });
         const data = await res.json();
         if (!res.ok) { errEl.textContent = data.error || '로그인에 실패했어요.'; return; }
-        const cred = await firebase.auth().signInWithCustomToken(data.token);
         authOverlayEl.classList.add('hidden');
-        resolve({ mode: 'member', uid: cred.user.uid });
+        resolve({ mode: 'member', uid: data.uid });
       } catch (err) {
         errEl.textContent = '로그인 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
       }
@@ -2428,9 +2426,8 @@ function showAuthChoiceFlow() {
         });
         const data = await res.json();
         if (!res.ok) { errEl.textContent = data.error || '회원가입에 실패했어요.'; return; }
-        const cred = await firebase.auth().signInWithCustomToken(data.token);
         authOverlayEl.classList.add('hidden');
-        resolve({ mode: 'member', uid: cred.user.uid });
+        resolve({ mode: 'member', uid: data.uid });
       } catch (err) {
         errEl.textContent = '가입 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
       }
@@ -2439,17 +2436,16 @@ function showAuthChoiceFlow() {
 }
 
 // 접속할 때마다 이 순서로 신원을 확정함:
-// 1) Firebase Auth 세션이 이미 남아있으면(예전에 멤버로 로그인했던 브라우저) 자동으로 그 회원으로
+// 1) 예전에 로그인/가입에 성공해서 uid가 localStorage에 남아있으면(멤버) 조용히 그 uid로
 // 2) 아니고 예전에 "비회원으로 시작"을 고른 적 있으면(localStorage) 조용히 기존 방식으로
 // 3) 둘 다 아니면(최초 접속) 선택 화면을 띄워서 물어봄
 async function resolveIdentity() {
-  const authUser = await new Promise(resolve => {
-    const unsub = firebase.auth().onAuthStateChanged(u => { unsub(); resolve(u); });
-  });
-  if (authUser) {
+  let memberUid = null;
+  try { memberUid = localStorage.getItem('wb-memberUid'); } catch {}
+  if (memberUid) {
     isMemberMode = true;
     memberLogoutBtn.classList.remove('hidden');
-    return authUser.uid;
+    return memberUid;
   }
 
   let guestChosen = false;
@@ -2466,12 +2462,13 @@ async function resolveIdentity() {
     return await fetchClientId();
   }
   isMemberMode = true;
+  try { localStorage.setItem('wb-memberUid', result.uid); } catch {}
   memberLogoutBtn.classList.remove('hidden');
   return result.uid;
 }
 
-memberLogoutBtn.addEventListener('click', async () => {
-  try { await firebase.auth().signOut(); } catch {}
+memberLogoutBtn.addEventListener('click', () => {
+  try { localStorage.removeItem('wb-memberUid'); } catch {}
   location.reload();
 });
 

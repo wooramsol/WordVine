@@ -36,9 +36,13 @@ exports.identify = functions.https.onRequest((req, res) => {
  * 비밀번호는 클라이언트나 DB에 평문으로 남지 않는다 — 이 함수 안에서만 Node
  * 내장 crypto.scrypt로 솔트+해시를 만들어 members/{uid}에 저장하고, 로그인 시엔
  * 같은 방식으로 해시를 다시 계산해 timingSafeEqual로 비교한다.
- * 로그인/가입에 성공하면 Firebase Admin SDK로 커스텀 토큰을 발급하고, 클라이언트는
- * 그 토큰으로 firebase.auth().signInWithCustomToken()을 호출해 그 uid로 로그인한다
- * (그 uid가 곧 게임 안에서의 clientId가 됨 — presence/board 등 기존 구조를 그대로 재사용).
+ * 로그인/가입에 성공하면 그 uid를 그대로 응답에 실어 보내고, 클라이언트는 그 uid를
+ * localStorage에 저장해 계속 그 uid로 접속한다 — 이 uid가 곧 게임 안에서의 clientId가
+ * 됨(presence/board 등 기존 구조를 그대로 재사용). 처음엔 Firebase Auth 커스텀 토큰으로
+ * 진짜 로그인 세션을 만들려 했지만, 이 프로젝트의 identify()처럼 애초에 clientId를
+ * "서버가 확인해준 문자열"로만 취급하고 RTDB 규칙도 clientId별로 잠그지 않는 구조라
+ * 커스텀 토큰이 주는 이점이 없고, 오히려 배포 환경의 IAM 권한(서비스 계정에
+ * Service Account Token Creator 롤 필요) 문제로 실패하기 쉬워 제거함.
  *
  * members/{uid}         : { nickname, iconIdx, passwordHash, createdAt } — 비공개(admin 전용)
  * memberNicknames/{nick}: uid — 닉네임 중복 방지용 색인(소문자), 비공개(admin 전용)
@@ -106,8 +110,7 @@ exports.signup = functions.https.onRequest(async (req, res) => {
       db.ref('memberProfiles/' + uid).set({ nickname, iconIdx }),
     ]);
 
-    const token = await admin.auth().createCustomToken(uid);
-    res.json({ token, uid, nickname, iconIdx });
+    res.json({ uid, nickname, iconIdx });
   } catch (e) {
     console.error('signup 실패:', e);
     res.status(500).json({ error: '가입 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.' });
@@ -136,8 +139,7 @@ exports.login = functions.https.onRequest(async (req, res) => {
       res.status(401).json({ error: WRONG }); return;
     }
 
-    const token = await admin.auth().createCustomToken(uid);
-    res.json({ token, uid, nickname: member.nickname, iconIdx: member.iconIdx });
+    res.json({ uid, nickname: member.nickname, iconIdx: member.iconIdx });
   } catch (e) {
     console.error('login 실패:', e);
     res.status(500).json({ error: '로그인 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.' });
