@@ -318,11 +318,22 @@
     background: #f5f1e8;
   }
   #pageLoadingOverlay.hidden { display: none; }
+  #pageLoadingInner { display: flex; flex-direction: column; align-items: center; gap: 16px; }
   .pageSpinner {
     width: 36px; height: 36px;
     border: 4px solid #e2dbc8; border-top-color: #8a7a4f;
     border-radius: 50%; animation: spin .8s linear infinite;
   }
+  /* 8초가 지나도 로딩이 안 끝나면(불안정한 네트워크 등) 스피너 아래에 나타나는 안내 —
+     사용자가 영문도 모른 채 무한정 기다리지 않고 직접 새로고침할 수 있게 함 */
+  #pageLoadingRetry { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #pageLoadingRetry.hidden { display: none; }
+  #pageLoadingRetryMsg { font-size: 13px; color: #8a7a4f; }
+  #pageLoadingRetryBtn {
+    padding: 10px 22px; border-radius: 12px; border: none; cursor: pointer;
+    background: #8a7a4f; color: #fff; font-size: 14px; font-weight: 700;
+  }
+  #pageLoadingRetryBtn:hover { background: #7a6c45; }
   /* 로그인/가입 버튼 안에서 요청 진행 중일 때 도는 작은 스피너 — 버튼이 항상
      authBtnPrimary(진한 배경+흰 글씨)라 흰색 스피너로 고정 */
   .btnSpinner {
@@ -406,7 +417,15 @@
 
 <!-- 접속 확인 + 보드 첫 데이터 동기화를 기다리는 동안 보여주는 로딩 스피너.
      멤버/비회원 선택 화면이 뜨거나 보드 데이터가 도착하면 사라짐(resolveIdentity/boot 참고) -->
-<div id="pageLoadingOverlay"><div class="pageSpinner"></div></div>
+<div id="pageLoadingOverlay">
+  <div id="pageLoadingInner">
+    <div class="pageSpinner"></div>
+    <div id="pageLoadingRetry" class="hidden">
+      <div id="pageLoadingRetryMsg">로딩이 오래 걸리고 있어요</div>
+      <button type="button" id="pageLoadingRetryBtn">새로고침</button>
+    </div>
+  </div>
+</div>
 
 <div id="brand">낱말바둑<span id="brandHelpIcon">ⓘ</span></div>
 <div id="infoPanelBackdrop" class="hidden"></div>
@@ -431,7 +450,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.6</div>
+<div id="verTagBottom">v1.9.7</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -532,11 +551,18 @@ const livePeers = new Map();        // clientId -> { x, y, dir, typed, ts } — 
 
 // IP 기반 익명 ID 발급 (서버: functions/index.js). 함수 호출 실패 시(로컬 개발 등)엔
 // 기존 방식(브라우저별 임의 ID)으로 폴백해서 앱이 계속 동작하게 함.
+// fetch 자체엔 기본 타임아웃이 없어서 요청이 응답 없이 무한정 걸려있으면(불안정한 네트워크,
+// 브라우저 확장 프로그램 간섭 등) 여기서 영원히 멈춰버릴 수 있음 — AbortController로 6초
+// 넘으면 강제로 포기하고 로컬 폴백으로 넘어가게 함(로딩 화면이 무한히 안 뜨게 하는 안전장치).
 async function fetchClientId() {
   try {
-    const res = await fetch('/api/identify');
-    const data = await res.json();
-    if (data && data.id) return data.id;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    try {
+      const res = await fetch('/api/identify', { signal: controller.signal });
+      const data = await res.json();
+      if (data && data.id) return data.id;
+    } finally { clearTimeout(timer); }
   } catch (e) { /* 폴백으로 진행 */ }
   try {
     let id = localStorage.getItem('wv-id');
@@ -2381,7 +2407,17 @@ fetch('words.txt')
 let isMemberMode = false;
 
 const pageLoadingOverlayEl = document.getElementById('pageLoadingOverlay');
+const pageLoadingRetryEl = document.getElementById('pageLoadingRetry');
 function hidePageLoadingOverlay() { pageLoadingOverlayEl.classList.add('hidden'); }
+document.getElementById('pageLoadingRetryBtn').addEventListener('click', () => location.reload());
+// 안전장치: 접속 확인이나 보드 첫 동기화가 예상보다 오래 걸리면(불안정한 네트워크,
+// 브라우저 확장 프로그램 간섭 등으로 로딩이 멈춰버리는 경우) 스피너만 무한정 돌지 않고
+// 8초 뒤 "새로고침" 버튼을 같이 보여줌 — 사용자가 무한 로딩 화면에 갇히지 않게 함
+setTimeout(() => {
+  if (!pageLoadingOverlayEl.classList.contains('hidden')) {
+    pageLoadingRetryEl.classList.remove('hidden');
+  }
+}, 8000);
 
 const authOverlayEl = document.getElementById('authOverlay');
 const authChoiceViewEl = document.getElementById('authChoiceView');
@@ -2682,7 +2718,12 @@ async function boot() {
     else draw();
   });
 }
-boot();
+// boot() 안에서 처리 안 된 예외가 나면(원래는 그냥 콘솔에만 조용히 찍히고 로딩 화면이
+// 영원히 안 사라짐) 최소한 새로고침 버튼이라도 바로 보이게 함
+boot().catch(err => {
+  console.error('부트스트랩 실패:', err);
+  pageLoadingRetryEl.classList.remove('hidden');
+});
 
 resize();
 </script>
