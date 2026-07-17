@@ -219,16 +219,20 @@
     position: fixed; z-index: 20; opacity: 1; border: none; padding: 0; margin: 0;
     font-size: 16px; color: transparent; background: transparent; caret-color: transparent;
     /* pointer-events:none을 쓰지 않음 — iOS 등 일부 모바일 브라우저는 pointer-events:none인
-       input은 JS로 focus()해도 소프트웨어 키보드를 안 띄우는 경우가 있음. wordInput은 항상
-       "지금 선택된 칸" 위에만 걸쳐 있어서, 그 칸을 다시 탭했을 때 네이티브로 재포커스되는 것도
-       문제 없음(이미 그 칸이 선택된 상태이므로). */
-    min-width: 24px; min-height: 24px; outline: none; box-shadow: none;
-    /* wordInput이 선택 칸 크기만큼 화면 위에 실제로 얹혀 있다 보니, 그 위에서 드래그(보드
-       패닝 제스처)를 하면 브라우저가 "이 입력창 안의 글자를 드래그로 선택 중"이라고 오해해서
-       선택 핸들 + 붙여넣기/자동완성 말풍선이 뜨는 문제가 있었음. html/body의 user-select:none은
-       입력창 자신의 값 텍스트 선택까지는 못 막아서(브라우저가 폼 요소는 예외로 둠) 여기 직접
-       걸어줌 + touch-action:none으로 드래그 제스처 자체를 브라우저가 가로채지 않게 함
-       (아래 JS의 selectstart 차단과 함께 써야 완전히 막힘) */
+       input은 JS로 focus()해도 소프트웨어 키보드를 안 띄우는 경우가 있음. 그래도 문제없는 게,
+       칸 선택/재선택은 항상 canvas 클릭 핸들러가 wordInput.blur()+focus()를 코드로 직접
+       호출해서 처리하고(아래 참고), 네이티브 탭-포커스에는 의존하지 않음.
+       예전엔 이 입력창을 선택된 칸 위에 정확히 겹쳐뒀었는데, 그러면 iOS가 그 칸 바로 위에
+       붙여넣기/자동완성 말풍선을 띄워서 게임판을 가리는 문제가 있었음(포커스가 항상 코드로만
+       주어지니 굳이 칸 위에 있을 필요가 없었음) — 그래서 화면 왼쪽 아래 구석의 고정된 자리에
+       작게 박아두고, 어떤 칸을 선택하든 화면 위치는 항상 그대로임. */
+    left: 2px; bottom: calc(2px + env(safe-area-inset-bottom, 0px));
+    width: 24px; height: 24px; outline: none; box-shadow: none;
+    /* 이 자리에서라도 드래그/더블클릭으로 텍스트가 선택되면 붙여넣기/자동완성 말풍선이 뜨는
+       건 마찬가지라 계속 막아야 함. html/body의 user-select:none은 입력창 자신의 값 텍스트
+       선택까지는 못 막아서(브라우저가 폼 요소는 예외로 둠) 여기 직접 걸어줌 + touch-action:none
+       으로 드래그 제스처 자체를 브라우저가 가로채지 않게 함(아래 JS의 selectstart/더블클릭
+       차단과 함께 써야 완전히 막힘) */
     user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
     touch-action: none;
   }
@@ -458,7 +462,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.11</div>
+<div id="verTagBottom">v1.9.12</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -525,7 +529,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.11'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.12'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1503,16 +1507,13 @@ function positionSelUI() {
   modeBadge.classList.add('show');
 }
 
-// wordInput은 칸을 "새로 선택"할 때만 위치를 맞춘다. 타이핑 중(한글 조합 중) 위치/크기가
-// 바뀌면 조합이 중간에 끊기는 브라우저가 있어서, draw()가 자주 호출돼도 여긴 건드리지 않음.
-function positionWordInput() {
-  if (!sel) return;
-  const [sx, sy] = worldToScreen(sel.x, sel.y);
-  wordInput.style.left = sx + 'px';
-  wordInput.style.top = sy + 'px';
-  wordInput.style.width = cellSize + 'px';
-  wordInput.style.height = cellSize + 'px';
-}
+// wordInput은 더 이상 선택된 칸 위치를 따라다니지 않음(CSS에서 화면 왼쪽 아래 구석에
+// 고정) — iOS가 그 칸 위에 붙여넣기/자동완성 말풍선을 띄워 게임판을 가리는 문제 때문에
+// 일부러 뗐음(자세한 이유는 #wordInput CSS 주석 참고). 포커스는 항상 코드로만 주므로
+// 화면 위치가 칸과 안 맞아도 타이핑/키보드 동작엔 영향이 없어서, 이 함수는 더 손댈 게
+// 없는 빈 함수로 남겨둠(호출부를 전부 지우는 대신 이렇게 남겨두면 나중에 다시 필요해질
+// 경우에도 호출 지점을 다시 찾을 필요가 없음).
+function positionWordInput() {}
 
 // 칸을 선택할 때, 그 칸(또는 빈 칸이면 상하좌우 인접 칸)에 이미 연결된 방향이 있으면
 // 그 방향을 우선 채택함. 예전엔 항상 이전 선택의 방향(기본 가로)을 그대로 물려받아서,
