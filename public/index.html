@@ -462,7 +462,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.12</div>
+<div id="verTagBottom">v1.9.13</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -472,7 +472,7 @@
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
      화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
-<input id="wordInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" lang="ko">
+<input id="wordInput" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" lang="ko" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
 <div id="modeBadge"></div>
 
 <div id="toast"></div>
@@ -529,7 +529,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.12'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.13'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
