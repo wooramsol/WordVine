@@ -349,7 +349,7 @@
   <ol id="lbList"></ol>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.8.1</div>
+<div id="verTagBottom">v1.8.2</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -990,13 +990,16 @@ function draw() {
     const [csx, csy] = worldToScreen(ccx, ccy);
     const caretW = Math.max(2, cellSize * 0.06);
     const inset = cellSize * 0.12;
+    // 칸 경계선(격자선)에 캐럿이 딱 걸쳐 있으면 격자선과 겹쳐 보이므로, 경계선에서 칸
+    // 안쪽으로 살짝 띄움(격자선 위가 아니라 그 옆에 서 있는 느낌으로)
+    const edgeGap = Math.max(2, cellSize * 0.06);
     ctx.fillStyle = `hsl(${myHueVal}, 70%, 40%)`;
     if (sel.dir === 'h') {
-      // 왼쪽(가로 진행 방향 기준 시작) 변에 붙는 세로 막대
-      ctx.fillRect(csx - caretW / 2, csy + inset, caretW, cellSize - inset * 2);
+      // 왼쪽(가로 진행 방향 기준 시작) 변에서 살짝 띄운 세로 막대
+      ctx.fillRect(csx + edgeGap, csy + inset, caretW, cellSize - inset * 2);
     } else {
-      // 위쪽(세로 진행 방향 기준 시작) 변에 붙는 가로 막대
-      ctx.fillRect(csx + inset, csy - caretW / 2, cellSize - inset * 2, caretW);
+      // 위쪽(세로 진행 방향 기준 시작) 변에서 살짝 띄운 가로 막대
+      ctx.fillRect(csx + inset, csy + edgeGap, cellSize - inset * 2, caretW);
     }
   }
 
