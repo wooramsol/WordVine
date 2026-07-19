@@ -114,7 +114,9 @@
   /* 게임 종료(보드가 빈칸 없이 다 참) 축하 화면 — 컨페티 캔버스 + 중앙에 둥둥 뜨는 승리 텍스트 */
   #gameOverOverlay {
     position: fixed; inset: 0; z-index: 60;
-    display: flex; align-items: center; justify-content: center;
+    /* 2명 이상이면 축하 문구와 재시작 영역이 동시에 보일 수 있어서(모두에게 시작 버튼이
+       보이도록) 세로로 쌓이게 함 — 혼자일 땐 한쪽만 보이므로 어차피 상관없음 */
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
     background: rgba(245,241,232,.35);
     /* 배경 자체는 클릭을 그냥 통과시켜서 뒤에 있는 보드 칸을 계속 누르고 타이핑할 수
        있게 함(실제로 "놓기"는 submit()에서 별도로 막음) — 팝업 카드/버튼만 아래에서
@@ -564,7 +566,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.20</div>
+<div id="verTagBottom">v1.9.21</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -638,7 +640,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.20'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.21'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2453,6 +2455,7 @@ const gameOverEmojiEl = document.getElementById('gameOverEmoji');
 const gameOverSuffixEl = document.getElementById('gameOverSuffix');
 const gameOverDrawMsgEl = document.getElementById('gameOverDrawMsg');
 const gameOverDrawSubEl = document.getElementById('gameOverDrawSub');
+const gameOverHintEl = document.getElementById('gameOverHint');
 const gameOverRestartWrap = document.getElementById('gameOverRestartWrap');
 const gameOverRestartInfoEl = document.getElementById('gameOverRestartInfo');
 const gameOverRestartBtn = document.getElementById('gameOverRestartBtn');
@@ -2526,6 +2529,7 @@ function stopConfetti() {
 function showGameOver(winnerOwner) {
   gameOverPhase = 'celebrate';
   gameOverTextEl.classList.remove('hidden');
+  gameOverHintEl.classList.remove('hidden'); // 이전 판(2명 이상)에서 숨겨진 채로 남아있을 수 있어 매번 되돌려둠
   gameOverRestartWrap.classList.add('hidden');
   if (winnerOwner) {
     gameOverEmojiEl.textContent = ownerEmoji(winnerOwner);
@@ -2554,6 +2558,23 @@ function showGameOver(winnerOwner) {
   // 여기서 매번 재생해도 스팸이 되지 않음. 모든 접속자에게 동시에 울림(모두가 boardRef의
   // 같은 상태 변화를 구독하고 있어서, 승리 화면과 함께 자연히 다 같이 재생됨)
   playGameOverFanfare();
+  revealRestartForEveryone(); // 2명 이상이면 눌러서 넘길 필요 없이 처음부터 시작 버튼도 같이 보여줌
+}
+
+// "게임 시작"/"게임 재시작" 버튼이 누른 사람 화면에만 뜨는 게 아니라, 2명 이상 접속 중이면
+// 접속자 전원의 화면에 동시에 보여야 함(요구사항) — 그래서 혼자일 때만 쓰던 "축하 화면을
+// 눌러야 버튼이 나오는" 단계를 건너뛰고, showGameOver()가 호출되는 시점(모두에게 동시에
+// 반영됨)에 곧바로 버튼도 같이 띄움. 게임이 끝난 뒤 인원이 1명 -> 2명으로 바뀌는 경우에도
+// (presence 갱신 때마다) 다시 이 함수를 불러서 그 순간 바로 반영되게 함.
+function revealRestartForEveryone() {
+  if (gameOverOverlay.classList.contains('hidden')) return; // 게임종료 화면 자체가 안 떠 있으면 상관없음
+  if (userCount < 2) return; // 혼자면 예전처럼 축하 화면을 눌러야 버튼이 나옴(1번 요구사항 유지)
+  if (gameOverPhase !== 'restart') {
+    gameOverPhase = 'restart';
+    gameOverHintEl.classList.add('hidden'); // "눌러서 닫기"는 이미 자동으로 열렸으니 의미 없음
+    gameOverRestartWrap.classList.remove('hidden');
+  }
+  updateRestartPromptText();
 }
 
 // 축하 화면을 눌러서 닫으면 완전히 사라지는 대신, 가운데에 재시작 영역을 띄움 —
@@ -3010,6 +3031,7 @@ async function boot() {
     updateStats();
     updateLeaderboard();
     checkMultiStartTrigger(); // 혼자 하던 판에 방금 2명 이상이 됐으면 시작 확인 팝업을 띄움
+    revealRestartForEveryone(); // 게임종료 축하 화면이 떠 있는 도중 2명 이상이 되면 버튼도 바로 같이 보여줌
     updateRestartPromptText(); // 재시작 안내가 떠 있는 동안 인원수가 바뀌면 문구도 실시간 갱신
     // 다른 유저들의 실시간 선택 칸/입력 상황 갱신 (누구나 중간에 참여해도 바로 보이게)
     livePeers.clear();
