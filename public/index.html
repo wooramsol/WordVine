@@ -183,22 +183,20 @@
 
   /* 화면 중앙 위쪽에 반투명(opacity) 박스로 표시 — 1~5등만, 순위가 높을수록 글자를
      크게 해서 한눈에 순위 차이가 보이게 함 */
-  /* 명예의전당 버튼 — 리더보드 바로 위, 같은 가운데 줄에 고정. 리더보드와 달리 실제
-     클릭해야 하는 버튼이라 배경/테두리를 그대로 두고 pointer-events도 켜둠(부모가 아니라
-     이 요소 자체가 fixed라 상관없음) */
+  /* 명예의전당 버튼 — 접속자 수(#userCountTag) 바로 왼쪽에, 같은 상단 줄(#topRight)에
+     나란히 붙임. 알약 높이를 #userCountTag와 똑같이 맞춤(font-size/padding 동일) */
   #hallOfFameBtn {
-    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 11;
-    padding: 3px 12px; border-radius: 12px; border: 1px solid #d8d2c4;
-    background: rgba(255,255,255,.85); color: #7a6c45; font-size: 11px; font-weight: 700;
-    cursor: pointer; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    font-size: 12px; padding: 6px 10px; border-radius: 20px;
+    border: none; background: #eee7d8; color: #7a6c45; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
   }
-  #hallOfFameBtn:hover { background: rgba(255,255,255,1); }
+  #hallOfFameBtn:hover { background: #e2d9c2; }
   #leaderboard {
-    /* 명예의전당 버튼 바로 아래, 브랜드 로고(좌상단)/접속자 태그(우상단)와 같은 가운데
-       틈에 배치. 배경/테두리/그림자 박스를 아예 없애고 글자만 떠 보이게 함 — 대신 보드
-       색이 다양해도(하얀 바탕이든 포획 영역 색이든) 글자가 묻히지 않도록 옅은 흰색
-       text-shadow로 은은한 윤곽을 줌(배경 박스 없이도 어디서나 읽히게) */
-    position: fixed; top: 46px; left: 50%; transform: translateX(-50%); z-index: 10;
+    /* 브랜드 로고(좌상단)/접속자 태그(우상단)와 같은 top:12px 줄의 가운데 틈에 배치.
+       배경/테두리/그림자 박스를 아예 없애고 글자만 떠 보이게 함 — 대신 보드 색이 다양해도
+       (하얀 바탕이든 포획 영역 색이든) 글자가 묻히지 않도록 옅은 흰색 text-shadow로
+       은은한 윤곽을 줌(배경 박스 없이도 어디서나 읽히게) */
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
     padding: 4px 10px;
     font-size: 12px; color: #444;
     text-shadow: 0 0 4px #fff, 0 0 4px #fff, 0 1px 2px rgba(255,255,255,.9);
@@ -206,7 +204,7 @@
        리더보드엔 클릭할 만한 요소(버튼 등)가 없으므로 안전하게 전부 통과시켜도 됨 */
     pointer-events: none;
     max-width: min(40vw, 320px);
-    max-height: calc(100vh - 58px); overflow-y: auto; overflow-x: hidden;
+    max-height: calc(100vh - 24px); overflow-y: auto; overflow-x: hidden;
   }
   #leaderboard.hidden { display: none; }
   #leaderboard ol { list-style: none; counter-reset: lb; }
@@ -330,20 +328,18 @@
     font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
   .authIconBtn.sel { border-color: #8a7a4f; background: #eee7d8; }
-  /* 접속 상태 태그 옆 로그아웃 버튼 — 멤버로 로그인했을 때만 보임 */
-  #memberLogoutBtn {
-    font-size: 12px; padding: 6px 10px; border-radius: 20px;
-    background: #e5e0d3; color: #6b5e3f; border: none; cursor: pointer;
+  /* 로그인/로그아웃 버튼 — 이제 상단 바가 아니라 명예의전당 팝업(#hofCard) 안에 있음.
+     팝업 안의 다른 버튼(#hofCloseBtn)과 같은 폭 100% 스타일로 통일 */
+  #hofAccountSection { margin-top: 16px; padding-top: 14px; border-top: 1px solid #f0ece0; }
+  #hofMemberPrompt { font-size: 12px; color: #999; text-align: center; margin-bottom: 8px; }
+  #hofMemberPrompt.hidden { display: none; }
+  #memberLogoutBtn, #guestSwitchBtn {
+    display: block; width: 100%; padding: 11px; margin-top: 0;
+    border-radius: 12px; border: 1px solid #d8d2c4; background: #f5f1e8;
+    color: #444; font-size: 14px; font-weight: 700; cursor: pointer;
   }
-  #memberLogoutBtn.hidden { display: none; }
-  #memberLogoutBtn:hover { background: #d8d2c0; }
-  /* 비회원으로 시작했을 때만 보이는 버튼 — 눌러서 다시 멤버/비회원 선택 화면으로 갈 수 있음 */
-  #guestSwitchBtn {
-    font-size: 12px; padding: 6px 10px; border-radius: 20px;
-    background: #e5e0d3; color: #6b5e3f; border: none; cursor: pointer;
-  }
-  #guestSwitchBtn.hidden { display: none; }
-  #guestSwitchBtn:hover { background: #d8d2c0; }
+  #memberLogoutBtn.hidden, #guestSwitchBtn.hidden { display: none; }
+  #memberLogoutBtn:hover, #guestSwitchBtn:hover { filter: brightness(0.97); }
 
   /* 명예의전당 — authOverlay/authCard와 같은 가운데 모달 패턴 재사용. 배경(#hofBackdrop)을
      눌러도 닫히게 해서 authOverlay처럼 익숙한 팝업 동작을 유지함 */
@@ -544,17 +540,16 @@
   </div>
 </div>
 <div id="topRight">
+  <button id="hallOfFameBtn" type="button">🏆 명예의전당</button>
   <div id="userCountTag"><span id="userCountDot"></span><span id="userCountText">1명</span></div>
-  <button id="memberLogoutBtn" type="button" class="hidden">로그아웃</button>
-  <button id="guestSwitchBtn" type="button" class="hidden">로그인</button>
 </div>
-<button id="hallOfFameBtn" type="button">🏆 명예의전당</button>
 <div id="leaderboard" class="hidden">
   <ol id="lbList"></ol>
 </div>
 
 <!-- 명예의전당: 회원(비회원 제외)의 역대 누적 포획 점수 1~20위. memberTotalScore는
-     보드가 초기화/재시작돼도 절대 리셋되지 않는 별도 RTDB 경로(submit() 참고) -->
+     보드가 초기화/재시작돼도 절대 리셋되지 않는 별도 RTDB 경로(submit() 참고).
+     로그인/로그아웃도 여기 안으로 옮겨서, 상단 바에는 접속자 수만 남게 함 -->
 <div id="hofBackdrop" class="hidden"></div>
 <div id="hofOverlay" class="hidden">
   <div id="hofCard">
@@ -562,11 +557,16 @@
     <div id="hofSub">회원 누적 포획 점수 순위 (비회원 제외)</div>
     <ol id="hofList"></ol>
     <div id="hofEmpty" class="hidden">아직 기록이 없어요.</div>
+    <div id="hofAccountSection">
+      <div id="hofMemberPrompt" class="hidden">멤버되고 점수기록되기</div>
+      <button id="guestSwitchBtn" type="button" class="hidden">로그인</button>
+      <button id="memberLogoutBtn" type="button" class="hidden">로그아웃</button>
+    </div>
     <button id="hofCloseBtn" type="button">닫기</button>
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.21</div>
+<div id="verTagBottom">v1.9.22</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -640,7 +640,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.21'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.22'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2391,6 +2391,7 @@ const hofBackdrop = document.getElementById('hofBackdrop');
 const hofOverlay = document.getElementById('hofOverlay');
 const hofListEl = document.getElementById('hofList');
 const hofEmptyEl = document.getElementById('hofEmpty');
+const hofMemberPromptEl = document.getElementById('hofMemberPrompt');
 const hofCloseBtn = document.getElementById('hofCloseBtn');
 const HOF_EMPTY_DEFAULT_MSG = hofEmptyEl.textContent;
 
@@ -2529,7 +2530,7 @@ function stopConfetti() {
 function showGameOver(winnerOwner) {
   gameOverPhase = 'celebrate';
   gameOverTextEl.classList.remove('hidden');
-  gameOverHintEl.classList.remove('hidden'); // 이전 판(2명 이상)에서 숨겨진 채로 남아있을 수 있어 매번 되돌려둠
+  gameOverHintEl.classList.remove('hidden');
   gameOverRestartWrap.classList.add('hidden');
   if (winnerOwner) {
     gameOverEmojiEl.textContent = ownerEmoji(winnerOwner);
@@ -2558,34 +2559,17 @@ function showGameOver(winnerOwner) {
   // 여기서 매번 재생해도 스팸이 되지 않음. 모든 접속자에게 동시에 울림(모두가 boardRef의
   // 같은 상태 변화를 구독하고 있어서, 승리 화면과 함께 자연히 다 같이 재생됨)
   playGameOverFanfare();
-  revealRestartForEveryone(); // 2명 이상이면 눌러서 넘길 필요 없이 처음부터 시작 버튼도 같이 보여줌
-}
-
-// "게임 시작"/"게임 재시작" 버튼이 누른 사람 화면에만 뜨는 게 아니라, 2명 이상 접속 중이면
-// 접속자 전원의 화면에 동시에 보여야 함(요구사항) — 그래서 혼자일 때만 쓰던 "축하 화면을
-// 눌러야 버튼이 나오는" 단계를 건너뛰고, showGameOver()가 호출되는 시점(모두에게 동시에
-// 반영됨)에 곧바로 버튼도 같이 띄움. 게임이 끝난 뒤 인원이 1명 -> 2명으로 바뀌는 경우에도
-// (presence 갱신 때마다) 다시 이 함수를 불러서 그 순간 바로 반영되게 함.
-function revealRestartForEveryone() {
-  if (gameOverOverlay.classList.contains('hidden')) return; // 게임종료 화면 자체가 안 떠 있으면 상관없음
-  if (userCount < 2) return; // 혼자면 예전처럼 축하 화면을 눌러야 버튼이 나옴(1번 요구사항 유지)
-  if (gameOverPhase !== 'restart') {
-    gameOverPhase = 'restart';
-    gameOverHintEl.classList.add('hidden'); // "눌러서 닫기"는 이미 자동으로 열렸으니 의미 없음
-    gameOverRestartWrap.classList.remove('hidden');
-  }
-  updateRestartPromptText();
 }
 
 // 축하 화면을 눌러서 닫으면 완전히 사라지는 대신, 가운데에 재시작 영역을 띄움 —
 // 비밀번호 없이 접속 중인 누구나 눌러서(또는 Enter로) 바로 다음 판을 시작할 수 있음.
 // 혼자 접속 중이면 예전처럼 "게임 재시작" 버튼 하나만(1번 요구사항: 그대로 유지),
-// 2명 이상이면 "게임을 시작하시겠습니까? 현재 인원 N명"을 같이 보여줘서, 아무나 한
-// 명이 시작을 눌러야 다음 판이 열리는 자동시작 라운드 흐름으로 바뀜.
+// 2명 이상이면 "현재 인원 N명"을 같이 보여줘서, 아무나 한 명이 시작을 눌러야 다음
+// 판이 열리는 자동시작 라운드 흐름으로 바뀜.
 function updateRestartPromptText() {
   if (gameOverPhase !== 'restart' || gameOverOverlay.classList.contains('hidden')) return;
   if (userCount >= 2) {
-    gameOverRestartInfoEl.textContent = `게임을 시작하시겠습니까? 현재 인원 ${userCount}명`;
+    gameOverRestartInfoEl.textContent = `현재 인원 ${userCount}명`;
     gameOverRestartInfoEl.classList.remove('hidden');
     gameOverRestartBtn.textContent = '게임 시작';
   } else {
@@ -2606,6 +2590,15 @@ function hideGameOver() {
   gameOverOverlay.classList.add('hidden');
   stopConfetti();
   inMultiStartPrompt = false;
+}
+
+// 누군가 축하 화면을 눌러서 넘겼다는 사실(board.celebrationDismissed)이 도착하면, 아직
+// 안 누른 다른 클라이언트들도 같이 재시작 화면으로 넘어감(누른 사람만 버튼이 보이던 문제
+// 수정) — 새 판이 시작되면(buildSeedBoard가 board를 통째로 덮어씀) 이 필드도 자연히 사라짐
+function maybeSyncCelebrationDismissed(board) {
+  if (board.celebrationDismissed && gameOverPhase === 'celebrate' && !gameOverOverlay.classList.contains('hidden')) {
+    showRestartPrompt();
+  }
 }
 
 // 재시작 버튼 클릭과 Enter 키 둘 다 이 함수 하나로 처리(요구사항: "클릭하거나 엔터누르면")
@@ -2651,8 +2644,14 @@ function checkMultiStartTrigger() {
 
 gameOverOverlay.addEventListener('click', (e) => {
   // 재시작 버튼처럼, 승리 문구 팝업도 그 영역을 직접 눌러야만 반응하고 바깥(배경)을
-  // 눌러도 아무 동작이 없음 — 재시작 버튼 단계에서도 마찬가지로 버튼 자체 핸들러만 반응함
-  if (gameOverPhase === 'celebrate' && e.target.closest('#gameOverText')) showRestartPrompt();
+  // 눌러도 아무 동작이 없음 — 재시작 버튼 단계에서도 마찬가지로 버튼 자체 핸들러만 반응함.
+  // 두 단계(축하 -> 시작 버튼)는 그대로 유지하되, "눌러서 넘겼다"는 사실 자체를 보드에
+  // 기록해서 나만이 아니라 접속 중인 모두의 화면이 같이 넘어가게 함(누른 사람만 버튼이
+  // 보이는 문제 수정) — 로컬에서도 바로 반영해서 네트워크 왕복을 기다리지 않게 함
+  if (gameOverPhase === 'celebrate' && e.target.closest('#gameOverText')) {
+    showRestartPrompt();
+    if (boardRef) boardRef.child('celebrationDismissed').set(true).catch(() => {});
+  }
 });
 
 gameOverRestartBtn.addEventListener('click', (e) => {
@@ -2913,6 +2912,7 @@ async function resolveIdentity() {
   if (guestChosen) {
     bootStage = 'resolveIdentity:guest-chosen-fetching-id';
     guestSwitchBtn.classList.remove('hidden');
+    hofMemberPromptEl.classList.remove('hidden'); // 비회원에게만 "멤버되고 점수기록되기" 문구를 로그인 버튼 위에 보여줌
     const id = await fetchClientId();
     bootStage = 'resolveIdentity:guest-id-fetched';
     return id;
@@ -2923,6 +2923,7 @@ async function resolveIdentity() {
   if (result.mode === 'guest') {
     try { localStorage.setItem('wb-guestChosen', '1'); } catch {}
     guestSwitchBtn.classList.remove('hidden');
+    hofMemberPromptEl.classList.remove('hidden'); // 비회원에게만 "멤버되고 점수기록되기" 문구를 로그인 버튼 위에 보여줌
     bootStage = 'resolveIdentity:new-guest-fetching-id';
     const id = await fetchClientId();
     bootStage = 'resolveIdentity:guest-id-fetched';
@@ -3031,7 +3032,6 @@ async function boot() {
     updateStats();
     updateLeaderboard();
     checkMultiStartTrigger(); // 혼자 하던 판에 방금 2명 이상이 됐으면 시작 확인 팝업을 띄움
-    revealRestartForEveryone(); // 게임종료 축하 화면이 떠 있는 도중 2명 이상이 되면 버튼도 바로 같이 보여줌
     updateRestartPromptText(); // 재시작 안내가 떠 있는 동안 인원수가 바뀌면 문구도 실시간 갱신
     // 다른 유저들의 실시간 선택 칸/입력 상황 갱신 (누구나 중간에 참여해도 바로 보이게)
     livePeers.clear();
@@ -3056,6 +3056,7 @@ async function boot() {
     // soloRound가 정확히 기록되면서 저절로 사라짐 — 덜 위험한 쪽으로 기본값을 바꿈
     currentRoundIsSolo = board.soloRound !== false;
     checkMultiStartTrigger();
+    maybeSyncCelebrationDismissed(board);
     updateRestartPromptText();
     const bc = board.cells || {};
     const now = Date.now();
