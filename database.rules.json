@@ -35,6 +35,13 @@
       ".read": false,
       ".write": false
     },
+    "pushTokens": {
+      ".read": false,
+      ".write": true,
+      "$uid": {
+        ".validate": "newData.hasChildren(['token', 'platform', 'ts']) && newData.child('token').isString()"
+      }
+    },
     "reports": {
       ".read": false,
       ".write": true,

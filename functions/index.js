@@ -183,3 +183,45 @@ exports.login = functions.https.onRequest(async (req, res) => {
     res.status(500).json({ error: '로그인 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.' });
   }
 });
+
+/**
+ * 푸시 알림 — 새 플레이어가 접속하면(presence/{clientId} 노드가 새로 생김) 등록된 다른
+ * 기기들에 알림을 보낸다. 앱을 백그라운드/종료 상태로 둔 사람도 "누가 들어왔는지" 알고
+ * 다시 들어와 같이 놀 수 있게 하려는 목적. 토큰은 pushTokens/{uid}에 클라이언트가 저장
+ * (public/index.html의 setupPushNotifications, 네이티브 앱에서만 동작). 만료/무효
+ * 토큰은 응답에서 걸러 그 자리에서 지워서 계속 실패하는 토큰이 쌓이지 않게 한다.
+ */
+exports.notifyOnJoin = functions.database.ref('/presence/{clientId}').onCreate(async (snap, context) => {
+  const joinerId = context.params.clientId;
+  const db = admin.database();
+  const tokensSnap = await db.ref('pushTokens').once('value');
+  const tokens = tokensSnap.val() || {};
+  const entries = Object.entries(tokens).filter(([uid]) => uid !== joinerId);
+  if (entries.length === 0) return null;
+
+  let response;
+  try {
+    response = await admin.messaging().sendEachForMulticast({
+      tokens: entries.map(([, t]) => t.token),
+      notification: {
+        title: '낱말바둑',
+        body: '새로운 플레이어가 접속했어요! 함께 낱말바둑 해요 🍎',
+      },
+    });
+  } catch (e) {
+    console.error('notifyOnJoin 전송 실패:', e);
+    return null;
+  }
+
+  const removals = [];
+  response.responses.forEach((r, i) => {
+    if (!r.success) {
+      const code = r.error && r.error.code;
+      if (code === 'messaging/registration-token-not-registered' || code === 'messaging/invalid-registration-token') {
+        removals.push(db.ref('pushTokens/' + entries[i][0]).remove());
+      }
+    }
+  });
+  if (removals.length) await Promise.all(removals);
+  return null;
+});
