@@ -736,7 +736,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.62</div>
+<div id="verTagBottom">v1.9.63</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -813,7 +813,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.62'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.63'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1601,8 +1601,14 @@ function draw() {
         ctx.fill();
         const emoji = activeCell.owner ? ownerEmoji(activeCell.owner) : null;
         if (emoji) {
-          ctx.fillStyle = 'rgba(34, 34, 34, 0.2)';
+          // 컬러 이모지(특히 모바일의 진짜 컬러 이모지 폰트)는 fillStyle의 알파값을 무시하고
+          // 항상 거의 불투명하게 그려져서, 데스크톱과 달리 모바일에서 "덜 흐려" 보이는 문제가
+          // 있었음(실사용자 신고) — fillStyle 색상의 알파가 아니라 ctx.globalAlpha로 투명도를
+          // 직접 제어하면 이모지를 포함한 모든 그리기 연산에 플랫폼과 무관하게 똑같이 적용됨
+          ctx.globalAlpha = 0.2;
+          ctx.fillStyle = '#222';
           ctx.fillText(emoji, asx + cellSize / 2, asy + cellSize / 2 + 1);
+          ctx.globalAlpha = 1;
         }
       }
     }
