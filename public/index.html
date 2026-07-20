@@ -736,7 +736,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.58</div>
+<div id="verTagBottom">v1.9.59</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -813,7 +813,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.58'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.59'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1157,6 +1157,82 @@ function findCapturedRegions(getCell, K, newlyPlacedCoords) {
     }
   }
   return captured;
+}
+
+// region(좌표 배열)의 bounding box 기준으로, findCapturedRegions와 똑같은 "포위한 네 변 중
+// 적어도 2면은 실제 글자(벽)로 막혀야" 규칙을 좌표 집합에 직접 적용함. 이미 뺏겨서 쪼개진
+// 조각이 진짜로 다시 완전히 둘러싸인 게 맞는지 재검증할 때(stolenRegionPieces와 함께) 씀
+function enclosureOk(region) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const [x, y] of region) {
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+  }
+  const freeSides = (minX === BOARD_MIN ? 1 : 0) + (maxX === BOARD_MAX ? 1 : 0) +
+                     (minY === BOARD_MIN ? 1 : 0) + (maxY === BOARD_MAX ? 1 : 0);
+  return (4 - freeSides) >= 2;
+}
+
+// 이미 포획된 칸을 덮어써서 뺏을 때, 그 칸이 속해 있던 기존 영역이 "정말로 여러 조각으로
+// 쪼개졌는지" 확인하기 위한 함수. preCells(덮어쓰기 전 board.cells 스냅샷)에서 owner가
+// 가진, overwrittenCoords가 속해 있던 연결 영역 전체(R)를 먼저 구한 뒤, 그중 이번에
+// 덮어쓴 좌표들을 뺀 "나머지"가 다시 몇 개의 조각(연결요소)으로 나뉘는지 반환함.
+// - 옆에 살아남은 같은 주인 칸이 다리처럼 계속 이어주면 나머지 전체가 여전히 조각 1개
+//   그대로임(길이 1 배열 반환) — 이 경우 아무 것도 새로 뺏긴 게 아니므로 호출부에서
+//   무시해야 함(단순히 옆에 붙어있다고 넘어가면 안 됨)
+// - 진짜로 다리가 끊겨서 2개 이상의 조각으로 쪼개졌으면, 각 조각은 이번 배치로 "새로
+//   고립되어 닫힌 영역"이 된 것 — 호출부에서 조각마다 enclosureOk로 다시 검증해서 통과한
+//   조각만 넘겨받으면 됨(쪼개진 조각이라도 다른 쪽이 아직 열려 있으면 진짜 닫힌 게 아님)
+function stolenRegionPieces(preCells, K, overwrittenCoords, owner) {
+  const NEI = (ax, ay) => [[ax + 1, ay], [ax - 1, ay], [ax, ay + 1], [ax, ay - 1]];
+  const inRegion = (x, y) => {
+    const c = preCells[K(x, y)];
+    return !!(c && c.captured && c.owner === owner);
+  };
+  // 1) 덮어쓰기 전 상태에서, 덮어쓴 좌표들이 속해 있던 영역 전체(R)를 flood-fill로 모음
+  const visitedR = new Set();
+  const R = [];
+  for (const [sx, sy] of overwrittenCoords) {
+    const startKey = K(sx, sy);
+    if (visitedR.has(startKey) || !inRegion(sx, sy)) continue;
+    visitedR.add(startKey);
+    const queue = [[sx, sy]];
+    R.push([sx, sy]);
+    while (queue.length) {
+      const [cx, cy] = queue.shift();
+      for (const [ax, ay] of NEI(cx, cy)) {
+        const ak = K(ax, ay);
+        if (visitedR.has(ak) || !inRegion(ax, ay)) continue;
+        visitedR.add(ak);
+        R.push([ax, ay]);
+        queue.push([ax, ay]);
+      }
+    }
+  }
+  // 2) 덮어쓴 좌표들을 뺀 나머지가, 그 좌표 집합 "안에서만" 다시 몇 조각으로 나뉘는지 확인
+  const overwrittenSet = new Set(overwrittenCoords.map(([x, y]) => K(x, y)));
+  const remainingSet = new Set(R.map(([x, y]) => K(x, y)).filter(k => !overwrittenSet.has(k)));
+  const visitedPiece = new Set();
+  const pieces = [];
+  for (const key of remainingSet) {
+    if (visitedPiece.has(key)) continue;
+    const [sx, sy] = key.split(',').map(Number);
+    visitedPiece.add(key);
+    const queue = [[sx, sy]];
+    const piece = [[sx, sy]];
+    while (queue.length) {
+      const [cx, cy] = queue.shift();
+      for (const [ax, ay] of NEI(cx, cy)) {
+        const ak = K(ax, ay);
+        if (visitedPiece.has(ak) || !remainingSet.has(ak)) continue;
+        visitedPiece.add(ak);
+        piece.push([ax, ay]);
+        queue.push([ax, ay]);
+      }
+    }
+    pieces.push(piece);
+  }
+  return pieces;
 }
 
 // ---------- 캔버스 ----------
@@ -2218,6 +2294,12 @@ async function submit() {
         if (c.captured) return { ch: null, dirs: [], captured: true, owner: c.owner };
         return { ch: c.ch, dirs: [c.h && 'h', c.v && 'v'].filter(Boolean), captured: false };
       };
+      // 이번 배치로 상대의 captured 칸을 덮어써서 뺏는 경우, 그 칸이 속해 있던 영역이 정말
+      // 쪼개졌는지(stolenRegionPieces) 판단하려면 "덮어쓰기 전" 상태가 필요함 — 아래 for문이
+      // board.cells를 바로 그 자리에서 덮어쓰기 시작하므로, 그 전에 얕은 복사로 스냅샷을 떠둠
+      // (기존 칸 객체 자체는 덮어쓸 때 새 객체로 통째로 교체하지 재사용 시에만 부분수정하므로,
+      // 얕은 복사로도 옛 captured 칸 객체들은 안전하게 원래 값 그대로 남아있음)
+      const preMoveCells = Object.assign({}, board.cells);
       const empty = Object.keys(board.cells).length === 0;
       const wordsList = Array.isArray(board.words) ? board.words : Object.values(board.words);
       // 채팅 텍스트는 영문/숫자/공백을 포함해 한글 사전 단어와 절대 같은 문자열이 될 수
@@ -2230,10 +2312,15 @@ async function submit() {
 
       const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
       const placedCoords = [];
+      const stolenCoordsByOwner = new Map(); // 이번에 덮어쓴 상대 소유 captured 칸: owner -> [[x,y],...]
       for (let i = 0; i < r.word.length; i++) {
         const cx = r.startX + dx * i, cy = r.startY + dy * i;
         const k = K(cx, cy);
         const existing = board.cells[k];
+        if (existing && existing.captured && existing.owner && existing.owner !== clientId) {
+          if (!stolenCoordsByOwner.has(existing.owner)) stolenCoordsByOwner.set(existing.owner, []);
+          stolenCoordsByOwner.get(existing.owner).push([cx, cy]);
+        }
         // 포획된 칸 위에 새로 글자를 쓰면(=상대 땅을 뺏으면) 예전 captured/owner 기록을
         // 그대로 재사용하지 않고 완전히 새 글자 칸으로 새로 만듦 — 재사용하면 captured:true가
         // 안 지워져서 글자가 있는데도 여전히 "포획된 칸"으로 남는 상태가 됨(렌더링/판정 둘 다 깨짐)
@@ -2266,11 +2353,28 @@ async function submit() {
         board.cells[K(cx, cy)] = { captured: true, owner: clientId, ts: Date.now() };
       }
 
+      // 상대 땅을 뺏은 경우, 그 칸이 속해 있던 기존 영역이 이번 배치로 정말 여러 조각으로
+      // 쪼개졌는지 확인함(stolenRegionPieces) — 옆에 살아남은 같은 주인 칸이 다리처럼 계속
+      // 이어주면(안 쪼개짐) 아무 것도 추가로 넘어가지 않고, 진짜로 쪼개졌으면 각 조각이
+      // 지금 실제로 다시 완전히 둘러싸였는지(enclosureOk) 재검증해서 통과한 조각만 넘어옴
+      let stolenCount = 0;
+      for (const [owner, coords] of stolenCoordsByOwner) {
+        const pieces = stolenRegionPieces(preMoveCells, K, coords, owner);
+        if (pieces.length <= 1) continue; // 안 쪼개졌으면 스킵
+        for (const piece of pieces) {
+          if (!enclosureOk(piece)) continue;
+          for (const [px, py] of piece) {
+            board.cells[K(px, py)] = { captured: true, owner: clientId, ts: Date.now() };
+            stolenCount++;
+          }
+        }
+      }
+
       board.version = (board.version || 0) + 1;
       placedInfo = {
         word: r.word,
         canonical: r.canonical && r.canonical !== r.word ? r.canonical : null,
-        capturedCount: capturedCells.length,
+        capturedCount: capturedCells.length + stolenCount,
         startX: r.startX,
         startY: r.startY,
         chat: isChat,
