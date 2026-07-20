@@ -736,7 +736,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.61</div>
+<div id="verTagBottom">v1.9.62</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -813,7 +813,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.61'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.62'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1566,29 +1566,44 @@ function draw() {
     }
   }
 
-  // 지금 선택한 칸 "그 한 칸"에만 적용 — 원래 있던 글자를 20% 불투명도로 흐리게 깔아둬서,
-  // 그 위에 새로 입력하는 글자(아래 activelyTyped 렌더링)가 선명하게 덧그려질 때 잘 구분되게 함.
-  // 주변 칸(접두/접미로 이어붙는 기존 글자)은 건드리지 않음. 포획된 칸을 다시 써서 뺏을 때도
-  // 마찬가지 — 원래 진하던 포획 색/이모지를 그대로 두면 새로 쓰는 글자와 겹쳐 잘 안 보이므로
-  // 똑같이 옅게 깔아줌
+  // "지금 새로 입력 중인 칸들" 전부에 적용 — 원래 있던 글자/포획 아이콘을 20% 불투명도로
+  // 흐리게 깔아둬서, 그 위에 새로 입력하는 글자(아래 preview 렌더링)가 선명하게 덧그려질
+  // 때 잘 구분되게 함. preview가 아직 없으면(한 글자도 안 쳤으면) 선택 칸 한 칸만, preview가
+  // 있으면 지금 실제로 타이핑 중인 구간[typedFrom, typedTo) 전체에 적용함 — 단어 중간에
+  // 있는 기존 글자나 포획 칸을 이어서 덮어쓸 때도 그 칸들 전부 똑같이 흐려짐(커서가 있는
+  // 첫 칸만이 아니라). 접두/접미로 자동 이어붙는 기존 글자(그 바깥 범위)는 건드리지 않고
+  // 원래 모습 그대로 둠
   if (sel) {
-    const selCell = cells.get(K(sel.x, sel.y));
-    if (selCell && !selCell.captured && selCell.ch) {
-      const [sx, sy] = worldToScreen(sel.x, sel.y);
-      ctx.fillStyle = '#fffdf7';
-      roundRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3, 5);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(34, 34, 34, 0.2)';
-      ctx.fillText(selCell.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
-    } else if (selCell && selCell.captured) {
-      const [sx, sy] = worldToScreen(sel.x, sel.y);
-      ctx.fillStyle = '#fffdf7';
-      roundRect(sx + 1.5, sy + 1.5, cellSize - 3, cellSize - 3, 5);
-      ctx.fill();
-      const emoji = selCell.owner ? ownerEmoji(selCell.owner) : null;
-      if (emoji) {
+    const activeDx = sel.dir === 'h' ? 1 : 0, activeDy = sel.dir === 'v' ? 1 : 0;
+    const activeCoords = [];
+    if (preview) {
+      const typedFrom = preview.typedFrom || 0;
+      const typedTo = typedFrom + (preview.typedLen != null ? preview.typedLen : preview.word.length);
+      for (let i = typedFrom; i < typedTo; i++) {
+        activeCoords.push([preview.startX + activeDx * i, preview.startY + activeDy * i]);
+      }
+    } else {
+      activeCoords.push([sel.x, sel.y]);
+    }
+    for (const [ax, ay] of activeCoords) {
+      const activeCell = cells.get(K(ax, ay));
+      if (!activeCell) continue;
+      const [asx, asy] = worldToScreen(ax, ay);
+      if (!activeCell.captured && activeCell.ch) {
+        ctx.fillStyle = '#fffdf7';
+        roundRect(asx + 1.5, asy + 1.5, cellSize - 3, cellSize - 3, 5);
+        ctx.fill();
         ctx.fillStyle = 'rgba(34, 34, 34, 0.2)';
-        ctx.fillText(emoji, sx + cellSize / 2, sy + cellSize / 2 + 1);
+        ctx.fillText(activeCell.ch, asx + cellSize / 2, asy + cellSize / 2 + 1);
+      } else if (activeCell.captured) {
+        ctx.fillStyle = '#fffdf7';
+        roundRect(asx + 1.5, asy + 1.5, cellSize - 3, cellSize - 3, 5);
+        ctx.fill();
+        const emoji = activeCell.owner ? ownerEmoji(activeCell.owner) : null;
+        if (emoji) {
+          ctx.fillStyle = 'rgba(34, 34, 34, 0.2)';
+          ctx.fillText(emoji, asx + cellSize / 2, asy + cellSize / 2 + 1);
+        }
       }
     }
   }
