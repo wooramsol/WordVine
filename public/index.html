@@ -32,17 +32,19 @@
   #board.dragging { cursor: grabbing; }
 
   #brand {
+    /* 우측 상단 랭킹 알약(#hallOfFameBtn)과 같은 크기(font-size/padding)로 맞춤 —
+       예전엔 더 크게(15px/8px 14px) 두드러졌는데, 다른 상단 알약들과 톤을 맞춤 */
     position: fixed; top: 12px; left: 12px; z-index: 11;
     background: rgba(255,255,255,.95); border: 1px solid #d8d2c4;
-    border-radius: 20px; padding: 8px 14px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
-    font-size: 15px; font-weight: 700; color: #1a1a1a; cursor: pointer;
+    border-radius: 20px; padding: 6px 10px; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    font-size: 12px; font-weight: 700; color: #1a1a1a; cursor: pointer;
     user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
     display: inline-flex; align-items: center; gap: 6px;
   }
   /* 타이틀 옆 도움말 아이콘 — 눌러서(툴팁처럼) 안내 패널을 여는 트리거임을 보여줌 */
   #brandHelpIcon {
     display: inline-flex; align-items: center; justify-content: center;
-    color: #8a7a4f; font-size: 14px; line-height: 1; flex-shrink: 0;
+    color: #8a7a4f; font-size: 12px; line-height: 1; flex-shrink: 0;
   }
   /* 배포할 때마다 이 버전 번호를 올림(예: v1.0.0 -> v1.0.1) — 화면 우측 하단에
      작게 표시해서 지금 보고 있는 화면이 최신 배포와 같은 버전인지 확인 가능 */
@@ -71,7 +73,7 @@
   #infoPanel {
     /* 최상단 레이어 — wordInput/modeBadge/toast 등 다른 모든 UI(z-index 30 이하)보다
        위에 오도록 해서, 선택된 칸의 배지 등과 겹쳐 보이지 않게 함 */
-    position: fixed; top: 54px; left: 12px; z-index: 40;
+    position: fixed; top: 44px; left: 12px; z-index: 40;
     background: rgba(255,255,255,.95); border: 1px solid #d8d2c4;
     border-radius: 12px; padding: 12px 15px; box-shadow: 0 2px 10px rgba(0,0,0,.1);
     font-size: 13px; color: #444; line-height: 1.7;
@@ -201,10 +203,10 @@
     position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
     padding: 6px 12px;
     font-size: 12px; color: #444;
-    background: rgba(245, 241, 232, .55);
-    border: 1px solid rgba(216, 210, 196, .45);
+    background: rgba(245, 241, 232, .22);
+    border: 1px solid rgba(216, 210, 196, .3);
     border-radius: 14px;
-    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(1.5px); -webkit-backdrop-filter: blur(1.5px);
     /* 클릭/터치 이벤트를 통과시켜서 뒤에 있는 보드 칸을 그대로 선택할 수 있게 함 —
        리더보드엔 클릭할 만한 요소(버튼 등)가 없으므로 안전하게 전부 통과시켜도 됨 */
     pointer-events: none;
@@ -217,10 +219,9 @@
      전부 em 단위라 폰트 크기에 비례해서 같이 커지고 작아짐 — 고정 px로 된 "공통 크기" 요소가
      하나도 없게 함. justify-content:center로 각 줄의 내용 전체를 가로 중앙에 정렬 */
   #leaderboard li { display: flex; align-items: center;
-    justify-content: center; gap: 0.5em; padding: 0.15em 0; font-size: 12px; white-space: nowrap; }
-  /* "..." 항목(.lbMore)은 순위가 아니므로 카운터 증가/등수 표시 대상에서 제외 */
-  #leaderboard li:not(.lbMore) { counter-increment: lb; }
-  #leaderboard li:not(.lbMore)::before { content: counter(lb) "등"; color: #9a927d;
+    justify-content: center; gap: 0.5em; padding: 0.15em 0; font-size: 12px; white-space: nowrap;
+    counter-increment: lb; }
+  #leaderboard li::before { content: counter(lb) "등"; color: #9a927d;
     font-size: 0.85em; flex: none; }
   /* 예전엔 색깔 점(●)만 찍었는데, 그 사람 고유 과일/아이콘 이모지를 그대로 보여주는 게
      더 직관적이라 교체함(비회원=과일, 회원=가입 때 고른 아이콘 — fruitOf()가 알아서 골라줌) */
@@ -231,9 +232,6 @@
   #leaderboard .cnt { color: #6b5e3f; font-variant-numeric: tabular-nums;
     font-weight: 800; display: inline-block; } /* 이름과 폰트 크기를 맞추기 위해 별도 font-size 없음(li 기본값 상속) */
   #leaderboard .cnt.bump { animation: scoreBump .6s ease; }
-  /* 4등 이하가 더 있을 때 표시하는 "..." — 별도 등수/점 없이 중앙에 작게 */
-  #leaderboard .lbMore { justify-content: center; color: #a89a78; font-size: 11px;
-    letter-spacing: .1em; padding: 2px 0 0; }
   @keyframes scoreBump {
     0% { transform: scale(1); color: #6b5e3f; }
     35% { transform: scale(1.4); color: #2c8f4a; }
@@ -584,7 +582,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.30</div>
+<div id="verTagBottom">v1.9.31</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -658,7 +656,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.30'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.31'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2360,15 +2358,14 @@ function updateLeaderboard() {
   // (인원 제한 없이) 점수 순으로 보여줌. 대신 과일/색이 8종뿐이라 접속자가 많아지면
   // 서로 다른 사람이 같은 과일로 겹쳐 보일 수 있는데, 그중 지금 실제로 접속 중인 사람은
   // 오른쪽에 작은 점(초록 = 접속 중)으로 표시해서 최소한 "지금 활동 중인지"는 구분되게 함
-  // 화면 중앙 위쪽 박스에는 자리가 한정적이므로 상위 3명까지만 보여주고, 그 밑은 있어도
-  // "..."로만 표시함
+  // 화면 중앙 위쪽 박스에는 자리가 한정적이므로 상위 2명까지만 보여줌 — 그 밑은 "..."도
+  // 없이 그냥 표시 안 함(적을수록 배경 뒤 보드 글자를 덜 가림)
   const rankedAll = [...tally.entries()].sort((a, b) => b[1] - a[1]);
-  const ranked = rankedAll.slice(0, 3);
-  const hasMore = rankedAll.length > 3;
+  const ranked = rankedAll.slice(0, 2);
   lbListEl.textContent = '';
   // 1등부터 아래로 갈수록 글자 크기가 작아지게 — li의 font-size를 기준(em)으로 두면
   // 안의 이름/점수/등수 등이 전부 비례해서 같이 작아짐
-  const RANK_FONT_SIZES = [17, 15, 13.5];
+  const RANK_FONT_SIZES = [17, 15];
   // 과일은 clientId 해시값으로 접속 즉시 고정 배정됨(fruitOf) — 다른 플레이어와 겹칠 수
   // 있는데("사과 2"처럼 번호를 붙여 구분하지 않음), 대신 절대 안 바뀌는 걸 우선한 트레이드오프
   // owner(clientId)는 유저가 localStorage를 조작하면 임의 문자열일 수 있으므로
@@ -2396,12 +2393,6 @@ function updateLeaderboard() {
     li.append(icon, name, cnt);
     lbListEl.appendChild(li);
   });
-  if (hasMore) {
-    const moreLi = document.createElement('li');
-    moreLi.className = 'lbMore';
-    moreLi.textContent = '...';
-    lbListEl.appendChild(moreLi);
-  }
   leaderboardEl.classList.remove('hidden');
 }
 
