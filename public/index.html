@@ -608,7 +608,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.39</div>
+<div id="verTagBottom">v1.9.40</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -685,7 +685,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.39'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.40'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2356,10 +2356,16 @@ resetBoardBtn.onclick = () => {
   showToast('보드를 초기화했어요.');
   playGameStart();
 };
-// 인앱 브라우저 탈출 안내 화면이 떠 있는 중이면 안내 패널을 열지 않음
-// 처음 들어오면 기기와 상관없이 기본으로 열어서 보여줌 — 이때만 배경도 같이 깔아서
-// "패널을 눌러야 닫힌다"는 걸 몰라도 바깥을 눌러 자연스럽게 닫을 수 있게 함
-if (!window.__wvExitScreen) {
+// 인앱 브라우저 탈출 안내 화면이 떠 있는 중이거나, 이미 한 번 신원을 정한 적 있는
+// 재방문자(멤버로 로그인했거나 비회원으로 시작한 적 있음 — resolveIdentity()가 나중에
+// 참고하는 것과 같은 localStorage 값)면 안내 패널을 자동으로 열지 않음. 정말 처음
+// 들어온 사람에게만 기본으로 열어서 보여줌 — 이때만 배경도 같이 깔아서 "패널을 눌러야
+// 닫힌다"는 걸 몰라도 바깥을 눌러 자연스럽게 닫을 수 있게 함
+let isReturningUser = false;
+try {
+  isReturningUser = !!localStorage.getItem('wb-memberUid') || localStorage.getItem('wb-guestChosen') === '1';
+} catch {}
+if (!window.__wvExitScreen && !isReturningUser) {
   infoPanel.classList.remove('hidden');
   infoPanelBackdrop.classList.remove('hidden');
 }
