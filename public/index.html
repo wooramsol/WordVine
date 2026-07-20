@@ -530,8 +530,9 @@
 <div id="infoPanelBackdrop" class="hidden"></div>
 <div id="infoPanel" class="hidden">
   <div style="white-space: nowrap; overflow-x: auto;">실시간으로 여러 명이 함께하는 낱말바둑이에요.<br>
-  칸을 눌러 낱말을 만들어보세요. 어디에 이어붙여도 괜찮아요.<br>
-  울타리를 치듯 낱말들로 둘러싸면, 안쪽 칸이 전부 내 땅이됩니다.<br>
+  음절을 이어 낱말을 만들어보세요. 어디에 이어붙여도 괜찮아요.<br>
+  낱말들로 울타리를 치면, 안쪽 칸이 전부 내 땅이 돼요.<br>
+  한 줄짜리 울타리는 인정되지 않아요.<br>
   표준국어대사전 기준 명사만 인정돼요.<br>
   <span id="dirHintTouch" style="color:#8a7a4f;display:none"><span class="dirIconBadge">가로</span><span class="dirIconBadge">세로</span> 배지를 눌러 입력 방향을 바꿀 수 있어요.</span>
   <span id="dirHintWeb" style="color:#8a7a4f;display:none"><span class="dirTabBadge">Tab</span>과 화살표(<span class="dirArrowIcon">&rarr;</span>/<span class="dirArrowIcon">&darr;</span>)로 입력 방향을 바꿀 수 있어요.</span></div>
@@ -567,7 +568,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.25</div>
+<div id="verTagBottom">v1.9.26</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -641,7 +642,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.25'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.26'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
