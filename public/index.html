@@ -736,7 +736,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.64</div>
+<div id="verTagBottom">v1.9.65</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -813,7 +813,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.64'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.65'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2023,7 +2023,10 @@ function openPopup(cx, cy, px, py) {
   // 포획된 칸도 이제 새 글자를 써서 뺏을 수 있음 — "못 쓴다"는 예전 안내 대신, 여기가
   // 그런 자리라는 것만 알려줌(막지는 않음)
   const capturedHere = cells.get(K(cx, cy))?.captured;
-  setMsg(capturedHere ? '포획된 땅이에요! 새로 글자를 써서 차지할 수 있어요.' : '');
+  // 포획된 칸이라는 안내는 에러가 아니라 그냥 알려주는 정보성 문구라서, neutral=true로 넘겨
+  // 배지가 빨간색(err)으로 변하지 않게 함 — 아무 것도 잘못한 게 없는데 빨간색이 뜨면
+  // "여긴 못 쓰나?" 하고 오해하기 쉬움(실사용자 신고)
+  setMsg(capturedHere ? '포획된 땅이에요! 새로 글자를 써서 차지할 수 있어요.' : '', false, true);
   submitEnabled = false;
   updateModeBadge();
   positionWordInput();
