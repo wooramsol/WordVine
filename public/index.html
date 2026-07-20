@@ -193,13 +193,17 @@
   #hallOfFameBtn:hover { background: #e2d9c2; }
   #leaderboard {
     /* 브랜드 로고(좌상단)/접속자 태그(우상단)와 같은 top:12px 줄의 가운데 틈에 배치.
-       배경/테두리/그림자 박스를 아예 없애고 글자만 떠 보이게 함 — 대신 보드 색이 다양해도
-       (하얀 바탕이든 포획 영역 색이든) 글자가 묻히지 않도록 옅은 흰색 text-shadow로
-       은은한 윤곽을 줌(배경 박스 없이도 어디서나 읽히게) */
+       예전엔 배경 없이 흰색 text-shadow로만 글자를 띄웠는데, 보드 색이 진할 때 테두리가
+       두꺼워 보이고 격자 위에 뜬 느낌이 강했음 — 대신 다른 상단 알약들(#brand,
+       #userCountTag, #hallOfFameBtn)과 같은 크림톤을 아주 옅게(반투명)만 깔아서,
+       격자는 은은히 비쳐 보이되 글자는 충분히 읽히게 함 */
     position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
-    padding: 4px 10px;
+    padding: 6px 12px;
     font-size: 12px; color: #444;
-    text-shadow: 0 0 4px #fff, 0 0 4px #fff, 0 1px 2px rgba(255,255,255,.9);
+    background: rgba(245, 241, 232, .55);
+    border: 1px solid rgba(216, 210, 196, .45);
+    border-radius: 14px;
+    backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
     /* 클릭/터치 이벤트를 통과시켜서 뒤에 있는 보드 칸을 그대로 선택할 수 있게 함 —
        리더보드엔 클릭할 만한 요소(버튼 등)가 없으므로 안전하게 전부 통과시켜도 됨 */
     pointer-events: none;
@@ -442,7 +446,7 @@
     /* 주소창/노치 등 모바일 상단 UI에 가려 잘리지 않도록 더 아래로, safe-area까지 고려 */
     #toast { bottom: auto; top: calc(92px + env(safe-area-inset-top, 0px)); }
     /* 모바일은 화면이 좁아 브랜드/접속자 수 사이 틈이 데스크톱보다 훨씬 좁음 —
-       기본값(top:12px, 배경 없음)은 이미 위에서 공통 적용됐고, 여기서는 그 좁은 틈에
+       기본값(top:12px, 반투명 크림 배경)은 이미 위에서 공통 적용됐고, 여기서는 그 좁은 틈에
        맞게 scale로 전체를 축소해서 좌우 요소와 안 겹치게 함 */
     #leaderboard {
       padding: 4px 8px;
@@ -579,7 +583,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.28</div>
+<div id="verTagBottom">v1.9.29</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -653,7 +657,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.28'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.29'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
