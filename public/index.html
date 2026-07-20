@@ -175,10 +175,15 @@
     to   { transform: translateY(14px); }
   }
   #topRight { position: fixed; top: 12px; right: 12px; z-index: 10; display: flex; gap: 6px; }
+  /* #brand/#hallOfFameBtn과 같은 크림톤 팔레트(#eee7d8 배경 + #7a6c45 글자 + 같은 그림자)로
+     맞춤 — 예전엔 접속 중일 때 초록 배경으로 통째로 바뀌어서 다른 상단 알약들과 톤이
+     어긋났음. 지금은 점(●)의 깜빡임만으로 "접속 중"을 표시하고, 끊겼을 땐 알약 전체를
+     살짝 흐리게(opacity)만 해서 튀지 않게 함 */
   #userCountTag { font-size: 12px; padding: 6px 10px; border-radius: 20px;
-    background: #e5e0d3; color: #777; white-space: nowrap;
-    display: inline-flex; align-items: center; gap: 5px; }
-  #userCountTag.on { background: #dcefdb; color: #2c6e2f; }
+    background: #eee7d8; color: #7a6c45; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+  #userCountTag:not(.on) { opacity: .65; }
   /* 실시간(라이브) 화면처럼 보이도록, 접속 중일 때만 점이 계속 깜빡임 */
   #userCountDot { width: 7px; height: 7px; border-radius: 50%; background: #9a927d; flex: none; }
   #userCountTag.on #userCountDot { background: #2c8f4a; animation: liveBlink 1.8s ease-in-out infinite; }
@@ -684,7 +689,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.44</div>
+<div id="verTagBottom">v1.9.45</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -761,7 +766,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.44'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.45'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
