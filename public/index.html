@@ -189,6 +189,7 @@
     font-size: 12px; padding: 6px 10px; border-radius: 20px;
     border: none; background: #eee7d8; color: #7a6c45; font-weight: 700;
     cursor: pointer; white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08); /* #brand("낱말바둑")와 같은 그림자 — 눌러볼 수 있는 버튼임을 알려줌 */
   }
   #hallOfFameBtn:hover { background: #e2d9c2; }
   #leaderboard {
@@ -583,7 +584,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.29</div>
+<div id="verTagBottom">v1.9.30</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -657,7 +658,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.29'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.30'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
