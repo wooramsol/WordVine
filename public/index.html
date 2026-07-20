@@ -608,7 +608,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
-<div id="verTagBottom">v1.9.38</div>
+<div id="verTagBottom">v1.9.39</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -685,7 +685,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.38'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.39'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2136,7 +2136,7 @@ function showToast(msg) {
   toastTimer = setTimeout(() => toast.style.display = 'none', 2500);
 }
 
-// ---------- 플레이어 등장/퇴장 알림("{아이콘} {이름}님 등장!"/"퇴장!") ----------
+// ---------- 플레이어 등장/퇴장 알림("{아이콘} {이름}님 등장!"/"퇴장ㅠ") ----------
 // 한꺼번에 여러 명이 들어오거나 나가도 카드가 겹쳐 뭉개지지 않도록, 큐에 순서대로
 // 쌓아뒀다가 하나씩(4.5초 애니메이션 길이만큼 간격을 두고) 보여줌
 const joinAnnounceEl = document.getElementById('joinAnnounce');
@@ -2153,7 +2153,8 @@ function runJoinAnnounceQueue() {
   if (next === undefined) { joinAnnounceBusy = false; return; }
   joinAnnounceBusy = true;
   joinAnnounceIconEl.textContent = ownerEmoji(next.owner);
-  joinAnnounceTextEl.textContent = ownerName(next.owner) + '님 ' + next.verb + '!';
+  // verb 자체에 끝맺음(등장!/퇴장ㅠ 등)까지 포함시켜서 호출부에서 자유롭게 문구를 정함
+  joinAnnounceTextEl.textContent = ownerName(next.owner) + '님 ' + next.verb;
   // 같은 클래스를 연속으로 다시 추가해도(애니메이션이 이미 끝난 상태가 아니면) CSS
   // 애니메이션이 재시작되지 않으므로, 일단 떼고 강제로 리플로우시킨 뒤 다시 붙임
   joinAnnounceEl.classList.remove('show');
@@ -3081,7 +3082,7 @@ async function boot() {
     // 막 페이지를 열었을 때의 첫 스냅샷(이미 접속해 있던 사람들이 전부 "새로" 보임)과 나
     // 자신의 접속은 제외. 알림음은 한꺼번에 여러 명이 와도 1번만(스팸 방지), 등장 카드는
     // 아이콘/이름을 알려줘야 하니 새로 온 사람 수만큼 큐에 쌓아 순서대로 보여줌(showPlayerAnnounce).
-    // 나간 사람도 같은 카드로 "{아이콘} {이름}님 퇴장!"을 보여줌 — 나간 사람의 fruit/닉네임
+    // 나간 사람도 같은 카드로 "{아이콘} {이름}님 퇴장ㅠ"을 보여줌 — 나간 사람의 fruit/닉네임
     // 배정은 presence(접속표시)와 별개 경로(playerFruit/memberProfiles)라 나가도 그대로
     // 남아있어서, ownerName/ownerEmoji가 이 시점에도 여전히 정확한 이름/아이콘을 돌려줌
     if (!presenceFirstSync) {
@@ -3089,11 +3090,11 @@ async function boot() {
       for (const id of newIds) {
         if (id === clientId || onlineIds.has(id)) continue;
         if (!dinged) { playJoinDing(); dinged = true; }
-        showPlayerAnnounce(id, '등장');
+        showPlayerAnnounce(id, '등장!');
       }
       for (const id of onlineIds) {
         if (id === clientId || newIds.has(id)) continue;
-        showPlayerAnnounce(id, '퇴장');
+        showPlayerAnnounce(id, '퇴장ㅠ');
       }
     }
     // 다른 사람이 타이핑 중일 때도 나에게 틱 소리가 들리게 함(내 타이핑은 wordInput의
