@@ -736,7 +736,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.76</div>
+<div id="verTagBottom">v1.9.77</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -813,7 +813,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.76'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.77'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -982,37 +982,22 @@ function dictLookup(word) {
 // 뺏을 수 있음(=빈 칸과 똑같이 새로 쓸 수 있는 자리로 취급). 단, 접두/접미 자동 연결
 // (아래 prefix/suffix 탐색)은 여전히 captured 칸에서 멈춤 — 거긴 글자가 없어서 이어붙일
 // 게 없기 때문(이건 "쓸 수 있냐"가 아니라 "이을 글자가 있냐"의 문제라 그대로 둠)
-// 가로로 치고 있어도 세로로 읽었을 때(혹은 그 반대) 기존 글자와 이어져 사전에 있는
-// 단어가 만들어지면, 같은 줄 위에서의 접두/접미 연결이 하나도 없어도 "이어진 것"으로
-// 인정해줌 — 타이핑 방향과 수직인 방향으로 각 새 글자 위치에서 접두/접미를 모아
-// 사전에 있는지 확인하고, 하나라도 있으면 true
-function hasCrossConnection(typed, x, y, dir, getCell) {
-  const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
-  const pdx = dy, pdy = dx; // 타이핑 방향에 수직인 방향
-  for (let i = 0; i < typed.length; i++) {
-    const cx = x + dx * i, cy = y + dy * i;
-    let pPrefix = '', psx = cx, psy = cy;
-    while (true) {
-      const ex = getCell(psx - pdx, psy - pdy);
-      if (!ex || ex.captured) break;
-      pPrefix = ex.ch + pPrefix;
-      psx -= pdx; psy -= pdy;
-    }
-    let pSuffix = '', pei = 1;
-    while (true) {
-      const ex2 = getCell(cx + pdx * pei, cy + pdy * pei);
-      if (!ex2 || ex2.captured) break;
-      pSuffix += ex2.ch; pei++;
-    }
-    if (!pPrefix && !pSuffix) continue;
-    const word = pPrefix + typed[i] + pSuffix;
-    if (word.length < 2) continue;
-    if (DICT && dictLookup(word)) return true;
+// 딱 한 글자만 입력할 때는, 가로 모드든 세로 모드든 상관없이 반대 방향으로 읽어도 사전
+// 단어가 되면 그쪽으로 인정해줌 — 두 글자 이상을 입력할 때는 이 예외 없이 기존 규칙(입력
+// 중인 방향으로만 연결/사전 판정) 그대로 유지함. resolvePlaceOneDir()이 실제 판독을
+// 전담하고, resolvePlace()는 한 글자일 때만 반대 방향으로 한 번 더 시도해보는 얇은 래퍼.
+function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
+  const result = resolvePlaceOneDir(typed, x, y, dir, getCell, boardEmpty, usedWords);
+  if (result.ok) return result;
+  if (typed.length === 1) {
+    const altDir = dir === 'h' ? 'v' : 'h';
+    const altResult = resolvePlaceOneDir(typed, x, y, altDir, getCell, boardEmpty, usedWords);
+    if (altResult.ok) return altResult;
   }
-  return false;
+  return result; // 반대 방향도 실패했으면, 원래 입력 방향 기준의 실패 사유를 그대로 보여줌
 }
 
-function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
+function resolvePlaceOneDir(typed, x, y, dir, getCell, boardEmpty, usedWords) {
   const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
 
   let prefix = '', sx = x, sy = y;
@@ -1045,9 +1030,7 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
   }
   if (newCount === 0) return { err: '이미 모두 채워진 자리입니다.' };
   if (!boardEmpty && overlap === 0 && !prefix && !suffix) {
-    if (!hasCrossConnection(typed, x, y, dir, getCell)) {
-      return { err: '기존 단어와 최소 한 글자는 이어져야 합니다.' };
-    }
+    return { err: '기존 단어와 최소 한 글자는 이어져야 합니다.' };
   }
 
   // 접두/접미를 "전부 쓰거나 아예 안 쓰거나"만 시도하면, 예를 들어 기존 3글자 단어
