@@ -736,7 +736,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.74</div>
+<div id="verTagBottom">v1.9.78</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -813,7 +813,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.74'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.78'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1032,6 +1032,16 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
 
   const fails = [];
   for (const { pLen, sLen } of combos) {
+    // 겹치는 칸도 없고(overlap===0) 이번 조합이 접두/접미를 하나도 안 쓴다면(pLen=0,
+    // sLen=0), 이 조합이 우연히 사전에 있는 단어이더라도 옆의 기존 글자와는 전혀 안 이은
+    // 채 완전히 동떨어진 새 단어를 놓는 것과 똑같음. 예: "학교" 바로 오른쪽 칸에 "놋그릇"을
+    // 쳤을 때, prefix가 "학교"라서 위쪽 이어짐 요구 자체는 통과하지만, 정작 "놋그릇" 조합은
+    // 그 prefix를 하나도 안 쓰므로("교놋그릇"이 아니라 그냥 "놋그릇") 실제로는 안 이어진
+    // 것 — 이런 조합은 사전에 있어도 시도조차 하지 않고 건너뜀(아래에서 별도 에러로 안내)
+    if (!boardEmpty && overlap === 0 && pLen === 0 && sLen === 0) {
+      fails.push({ kind: 'disconnected' });
+      continue;
+    }
     let gridTyped = '', conflict = null;
     for (let i = 0; i < typed.length; i++) {
       const ex = tCells[i];
@@ -1077,6 +1087,15 @@ function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
       err: dupWords.map(w => `'${w}'`).join(', ') + '(은)는 이미 보드에서 쓰인 단어예요. 한 단어는 한 번만 쓸 수 있어요.',
       dupWords, // 어디에 이미 쓰였는지 화면에 하이라이트하기 위해 canonical 단어 목록을 같이 넘김
     };
+  }
+  // disconnected(접두/접미를 전혀 안 쓴 채 동떨어진 자리에 놓으려 한 것)는 dict(사전에 없음)
+  // 보다 먼저 확인함 — 예: "학교" 바로 옆에 "놋그릇"을 쳤을 때, "놋그릇" 자체는 진짜 사전
+  // 단어라 dict 실패는 안 나지만 disconnected로 걸러지므로, 이 경우 "사전에 없는 단어"라고
+  // 하면 오히려 틀린 설명이 됨(실제로는 사전에 있는데 안 이어진 것뿐). "이어져야 합니다"가
+  // 더 정확하므로 우선순위를 앞에 둠.
+  const hasDisconnected = fails.some(f => f.kind === 'disconnected');
+  if (hasDisconnected) {
+    return { err: '기존 단어와 최소 한 글자는 이어져야 합니다.' };
   }
   const dictWords = [...new Set(fails.filter(f => f.kind === 'dict').map(f => f.word))];
   if (dictWords.length) {
