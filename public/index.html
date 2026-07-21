@@ -732,7 +732,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.69</div>
+<div id="verTagBottom">v1.9.70</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -744,8 +744,15 @@
 </div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
-     화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시 -->
-<input id="wordInput" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" lang="ko" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
+     화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시.
+     autocomplete는 예전엔 "new-password"였는데(서드파티 자동완성 억제용), 이 값이 iOS의
+     "강력한 암호 제안"(iCloud 키체인) 휴리스틱을 그대로 트리거함 — 첫 글자를 치는 순간
+     iOS가 이 칸을 "새 비밀번호 입력칸"으로 판단해 키체인이 개입하면서, 키다운/키업(물리적
+     키 입력)은 계속 들어오는데 실제 값 반영(input 이벤트)은 더 이상 안 되는 것으로 확인됨
+     (구형 아이폰 SE, iOS 15.8.8에서 실제 재현·진단됨 — input 카운터는 1에서 멈추는데
+     keydown/keyup은 계속 올라감, 이게 iOS 키체인이 필드를 잠그는 전형적인 패턴과 일치).
+     "off"로 바꿔서 키체인 개입 자체를 막음(서드파티 매니저 억제는 data-lpignore 등으로 계속함). -->
+<input id="wordInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" lang="ko" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
 <div id="modeBadge"></div>
 
 <div id="toast"></div>
@@ -802,7 +809,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.69'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.70'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
