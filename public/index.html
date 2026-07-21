@@ -736,7 +736,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.77</div>
+<div id="verTagBottom">v1.9.74</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -813,7 +813,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.77'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.74'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -982,22 +982,7 @@ function dictLookup(word) {
 // 뺏을 수 있음(=빈 칸과 똑같이 새로 쓸 수 있는 자리로 취급). 단, 접두/접미 자동 연결
 // (아래 prefix/suffix 탐색)은 여전히 captured 칸에서 멈춤 — 거긴 글자가 없어서 이어붙일
 // 게 없기 때문(이건 "쓸 수 있냐"가 아니라 "이을 글자가 있냐"의 문제라 그대로 둠)
-// 딱 한 글자만 입력할 때는, 가로 모드든 세로 모드든 상관없이 반대 방향으로 읽어도 사전
-// 단어가 되면 그쪽으로 인정해줌 — 두 글자 이상을 입력할 때는 이 예외 없이 기존 규칙(입력
-// 중인 방향으로만 연결/사전 판정) 그대로 유지함. resolvePlaceOneDir()이 실제 판독을
-// 전담하고, resolvePlace()는 한 글자일 때만 반대 방향으로 한 번 더 시도해보는 얇은 래퍼.
 function resolvePlace(typed, x, y, dir, getCell, boardEmpty, usedWords) {
-  const result = resolvePlaceOneDir(typed, x, y, dir, getCell, boardEmpty, usedWords);
-  if (result.ok) return result;
-  if (typed.length === 1) {
-    const altDir = dir === 'h' ? 'v' : 'h';
-    const altResult = resolvePlaceOneDir(typed, x, y, altDir, getCell, boardEmpty, usedWords);
-    if (altResult.ok) return altResult;
-  }
-  return result; // 반대 방향도 실패했으면, 원래 입력 방향 기준의 실패 사유를 그대로 보여줌
-}
-
-function resolvePlaceOneDir(typed, x, y, dir, getCell, boardEmpty, usedWords) {
   const dx = dir === 'h' ? 1 : 0, dy = dir === 'v' ? 1 : 0;
 
   let prefix = '', sx = x, sy = y;
@@ -2483,29 +2468,6 @@ async function submit() {
 
     placing = false;
     if (result.committed && placedInfo) {
-      // 방금 놓은 글자를 로컬 cells 캐시에도 즉시(낙관적으로) 반영함 — 원래는 이걸 안 하고
-      // boardRef.on('value') 에코가 서버를 왕복해서 돌아올 때까지 기다렸는데, 그 짧은 시간
-      // 동안(특히 방금 완성한 단어의 마지막 글자 칸으로 자동 이동한 뒤 바로 다음 칸을 눌러
-      // 이어 타이핑하면) checkPreview()가 아직 옛 로컬 캐시를 보고 "기존 단어와 최소 한
-      // 글자는 이어져야 합니다"/"두 글자 이상 입력하세요" 같은 오탐 에러를 잠깐 띄우는
-      // 문제가 있었음. 실제 서버 스냅샷이 도착하면 boardRef.on('value')가 결국 같은 값으로
-      // 다시 덮어쓰므로(멱등) 여기서 미리 반영해도 안전함.
-      const optDx = dir === 'h' ? 1 : 0, optDy = dir === 'v' ? 1 : 0;
-      for (let i = 0; i < placedInfo.word.length; i++) {
-        const ocx = placedInfo.startX + optDx * i, ocy = placedInfo.startY + optDy * i;
-        const ok = K(ocx, ocy);
-        const prevLocal = cells.get(ok);
-        const prevDirs = (prevLocal && !prevLocal.captured) ? prevLocal.dirs : [];
-        const dirSet = new Set(prevDirs);
-        dirSet.add(dir);
-        cells.set(ok, {
-          ch: placedInfo.word[i],
-          dirs: [...dirSet],
-          captured: false,
-          fresh: prevLocal ? prevLocal.fresh : Date.now(),
-          by: clientId,
-        });
-      }
       // 랭킹용 누적 점수 — 보드 자체(board.cells의 captured 칸)는 판이 끝나고
       // 재시작될 때마다 통째로 비워지므로, 회원이 포획한 칸 수는 별도 경로에 영구히
       // 더해둠(비회원은 여기 안 씀 — 그래서 랭킹엔 회원만 나옴). 실패해도 게임
