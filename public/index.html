@@ -736,7 +736,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.79</div>
+<div id="verTagBottom">v1.9.80</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -813,7 +813,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.79'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.80'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2163,12 +2163,15 @@ function updateModeBadge() {
 // e.isComposing이 true인 동안(한글 조합 중)은 절대 건드리지 않아야 조합이 안 끊어짐.
 const HAS_ENGLISH_RE = /[A-Za-z]/; // 영문이 하나라도 섞이면 실제 배치(제출)는 항상 막음 — 타이핑만 허용
 const HAS_PUNCT_RE = /[?!]/; // 물음표/느낌표가 하나라도 섞여도 마찬가지로 배치는 항상 막음 — 타이핑만 허용
-// 원래 의도는 "숫자만" 입력일 때 채팅처럼 자유 배치를 허용하는 것이었는데, 예전 정규식은
-// "숫자가 하나라도 섞이면"(/[0-9]/, 한글과 섞여 있어도 매치)이라 "안녕1"처럼 한글+숫자
-// 조합도 전부 채팅 모드로 새서 단어잇기 규칙(연결/사전) 없이 그냥 놓여버리는 문제가 있었음.
-// 이제 순수 숫자로만 이루어진 입력일 때만("^숫자만^") 채팅 모드로 처리하고, 한글이 하나라도
-// 섞이면 일반 낱말 검증(연결/사전) 경로를 그대로 타게 함
-const CHAT_CHARS_RE = /^[0-9]+$/; // 전부 숫자로만 이루어졌을 때만 사전 검증 없이 채팅처럼 배치 허용
+// v1.9.80: 숫자는 영문/물음표/느낌표와 완전히 동일하게 취급 — 하나라도 섞이면(한글과 섞여
+// 있어도) 타이핑만 되고 실제 배치(제출)는 항상 막음. 예전엔 "숫자만" 또는 "숫자+한글"
+// 입력을 사전/연결 검증 없이 그냥 놓아주는 "채팅 모드"가 있었는데, 그걸 없애고 숫자도
+// 다른 특수문자와 똑같이 "보이기만 하고 안 놓이는" 대상으로 바꿈.
+const HAS_DIGIT_RE = /[0-9]/;
+// 아래 CHAT_CHARS_RE/resolveChatPlace는 이제 실제로 도달하지 않는 죽은 경로임(숫자가 섞이면
+// 위 HAS_DIGIT_RE 체크에서 이미 막힘) — board.words의 chat 플래그 등 다른 곳에서 참조하는
+// 부분이 있어 완전히 지우지 않고 남겨둠
+const CHAT_CHARS_RE = /^[0-9]+$/;
 let invalidCharNotified = false;
 wordInput.addEventListener('input', e => {
   playTypeTick();
@@ -2270,21 +2273,24 @@ function checkPreview() {
     draw();
     return;
   }
-  // 영문이나 물음표(?)/느낌표(!)가 하나라도 섞이면(한글/숫자와 섞여 있어도) 실제로 칸에
-  // 놓는 것("입력")은 항상 막음 — 낱말바둑은 한글 낱말 퍼즐이라 영문 단어나 문장부호는
-  // 취급하지 않음. 대신 타이핑 자체는 막지 않고(입력창에서 글자가 지워지지 않음) 지금
-  // 입력 중인 글자를 칸 미리보기로 보여만 주고, submitEnabled는 항상 false로 둬서 Enter를
-  // 눌러도 절대 놓이지 않게 함.
-  if (HAS_ENGLISH_RE.test(typed) || HAS_PUNCT_RE.test(typed)) {
+  // 영문·숫자·물음표(?)·느낌표(!)가 하나라도 섞이면(한글과 섞여 있어도) 실제로 칸에 놓는
+  // 것("입력")은 항상 막음 — 낱말바둑은 한글 낱말 퍼즐이라 영문/숫자/문장부호는 취급하지
+  // 않음. 대신 타이핑 자체는 막지 않고(입력창에서 글자가 지워지지 않음) 지금 입력 중인
+  // 글자를 칸 미리보기로 보여만 주고, submitEnabled는 항상 false로 둬서 Enter를 눌러도
+  // 절대 놓이지 않게 함. (v1.9.80: 예전엔 숫자만 있으면 "채팅 모드"로 사전/연결 검증 없이
+  // 자유롭게 놓을 수 있었는데, "숫자는 타이핑만 되고 실제로 놓이면 안 된다"는 요청으로
+  // 영문/물음표/느낌표와 완전히 동일하게 취급하도록 변경 — 숫자든 숫자+한글 혼합이든
+  // Enter를 눌러도 절대 배치되지 않음)
+  if (HAS_ENGLISH_RE.test(typed) || HAS_PUNCT_RE.test(typed) || HAS_DIGIT_RE.test(typed)) {
     preview = { startX: sel.x, startY: sel.y, word: typed, conflictTyped: -1, typedFrom: 0, typedLen: typed.length };
-    setMsg('영문/물음표/느낌표가 섞인 낱말은 놓을 수 없어요. 한글 낱말만 배치할 수 있어요.');
+    setMsg('영문/숫자/물음표/느낌표가 섞인 낱말은 놓을 수 없어요. 한글 낱말만 배치할 수 있어요.');
     submitEnabled = false;
     if (HAS_TOUCH) ensureVisible(); else draw();
     return;
   }
-  // 숫자만 섞이면(영문 없이, 한글과 섞여 있어도) 한글 사전 단어가 될 수 없으므로 — 사전/
-  // 두음법칙/단어잇기/중복금지를 전부 건너뛰는 "채팅 모드"로 처리. 이렇게 놓인 글자는 다른
-  // 한글 단어와 이어붙는 데는 쓰이지 않음(사전 검증이 아예 없으므로).
+  // 아래 "채팅 모드" 분기는 이제 절대 도달하지 않음(숫자가 하나라도 섞이면 위에서 이미
+  // 막혔음) — CHAT_CHARS_RE/resolveChatPlace 자체는 다른 곳(단어 기록의 chat 플래그 등)에서
+  // 참조하는 부분이 있어 남겨두되, 실제 배치 경로로는 더 이상 안 씀
   if (CHAT_CHARS_RE.test(typed)) {
     const rc = resolveChatPlace(typed, sel.x, sel.y, sel.dir, getLocalCell);
     if (rc.ok) {
@@ -2365,11 +2371,11 @@ async function submit() {
   }
   const typed = wordInput.value.trim();
   if (!typed) return;
-  // 영문이나 물음표(?)/느낌표(!)가 섞인 입력은 타이핑(미리보기)까지만 허용하고 실제 배치는
+  // 영문·숫자·물음표(?)·느낌표(!)가 섞인 입력은 타이핑(미리보기)까지만 허용하고 실제 배치는
   // 절대 하지 않음 — checkPreview()에서 submitEnabled를 계속 false로 두지만, 혹시라도
   // Enter가 그 사이를 뚫고 들어올 가능성에 대비해 여기서도 한 번 더 확실히 막음
-  if (HAS_ENGLISH_RE.test(typed) || HAS_PUNCT_RE.test(typed)) return;
-  const isChat = CHAT_CHARS_RE.test(typed);
+  if (HAS_ENGLISH_RE.test(typed) || HAS_PUNCT_RE.test(typed) || HAS_DIGIT_RE.test(typed)) return;
+  const isChat = CHAT_CHARS_RE.test(typed); // 숫자가 섞이면 위에서 이미 return하므로 사실상 항상 false
   if (!isChat && !/^[가-힣]+$/.test(typed)) return;
   // 채팅 모드는 사전이 필요 없으므로 DICT 로딩 여부와 무관하게 진행
   if (!isChat && !DICT) { setMsg('사전을 아직 불러오는 중이에요…'); showToast('사전을 아직 불러오는 중이에요…'); return; }
