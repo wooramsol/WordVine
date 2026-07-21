@@ -732,7 +732,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.70</div>
+<div id="verTagBottom">v1.9.71</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -809,7 +809,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.70'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.71'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2157,23 +2157,54 @@ let invalidCharNotified = false;
 // 원인을 좁힐 수 있음.
 const DEBUG_MODE = /[?&]debug=1(&|$)/.test(location.search);
 const dbgCounters = { input: 0, keydown: 0, keyup: 0, compStart: 0, compUpdate: 0, compEnd: 0 };
-let dbgOverlayEl = null;
+const dbgLastKey = { key: null, code: null, keyCode: null, which: null, isComposing: null, defaultPrevented: null };
+let dbgOverlayEl = null, dbgForceBtn = null, dbgForceLog = '';
 if (DEBUG_MODE) {
   dbgOverlayEl = document.createElement('div');
   dbgOverlayEl.id = 'dbgOverlay';
-  dbgOverlayEl.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,.82);color:#0f0;font:11px/1.5 monospace;padding:6px 8px;white-space:pre-wrap;pointer-events:none;';
+  dbgOverlayEl.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(0,0,0,.86);color:#0f0;font:10px/1.5 monospace;padding:6px 8px;white-space:pre-wrap;';
   document.body.appendChild(dbgOverlayEl);
+  // 실제 OS 키보드 없이, 이 버튼만 눌러서 wordInput.value를 강제로 바꿔봄 — 이게 눌렀을 때는
+  // 정상 반영되는데 실제 키보드로 치는 것만 안 먹는다면, 렌더링 파이프라인 자체는 멀쩡하고
+  // "iOS가 이 입력칸에 실제 키 입력을 안 흘려보내는" 것으로 100% 확정할 수 있음.
+  dbgForceBtn = document.createElement('button');
+  dbgForceBtn.textContent = '강제로 글자 넣기 테스트';
+  dbgForceBtn.type = 'button';
+  dbgForceBtn.style.cssText = 'pointer-events:auto;margin-top:4px;padding:4px 8px;font-size:11px;';
+  dbgForceBtn.addEventListener('click', () => {
+    try {
+      wordInput.value = (wordInput.value || '') + '9';
+      wordInput.dispatchEvent(new Event('input', { bubbles: true }));
+      dbgForceLog = '강제입력 성공, 지금 value=' + JSON.stringify(wordInput.value);
+    } catch (err) {
+      dbgForceLog = '강제입력 중 에러: ' + err.message;
+    }
+  });
+  dbgOverlayEl.appendChild(dbgForceBtn);
+  const dbgTextEl = document.createElement('div');
+  dbgOverlayEl.appendChild(dbgTextEl);
   setInterval(() => {
-    if (!dbgOverlayEl) return;
-    dbgOverlayEl.textContent =
+    if (!dbgTextEl) return;
+    dbgTextEl.textContent =
       'input:' + dbgCounters.input + ' keydown:' + dbgCounters.keydown + ' keyup:' + dbgCounters.keyup +
       ' compStart:' + dbgCounters.compStart + ' compUpdate:' + dbgCounters.compUpdate + ' compEnd:' + dbgCounters.compEnd +
       '\nvalue:' + JSON.stringify(wordInput.value) +
       ' sel:' + (sel ? (sel.x + ',' + sel.y + ' ' + sel.dir) : 'null') +
-      ' activeElement===wordInput:' + (document.activeElement === wordInput);
+      '\nactiveElement:' + (document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : 'null') +
+      ' (===wordInput:' + (document.activeElement === wordInput) + ')' +
+      '\nreadOnly:' + wordInput.readOnly + ' disabled:' + wordInput.disabled + ' maxLength:' + wordInput.maxLength +
+      ' selStart:' + wordInput.selectionStart + ' selEnd:' + wordInput.selectionEnd +
+      '\n마지막 keydown - key:' + dbgLastKey.key + ' code:' + dbgLastKey.code + ' keyCode:' + dbgLastKey.keyCode +
+      ' which:' + dbgLastKey.which + ' isComposing:' + dbgLastKey.isComposing + ' defaultPrevented:' + dbgLastKey.defaultPrevented +
+      '\n' + dbgForceLog;
   }, 200);
 }
-wordInput.addEventListener('keydown', () => { dbgCounters.keydown++; }, true);
+wordInput.addEventListener('keydown', e => {
+  dbgCounters.keydown++;
+  dbgLastKey.key = e.key; dbgLastKey.code = e.code; dbgLastKey.keyCode = e.keyCode;
+  dbgLastKey.which = e.which; dbgLastKey.isComposing = e.isComposing;
+  setTimeout(() => { dbgLastKey.defaultPrevented = e.defaultPrevented; }, 0);
+}, true);
 wordInput.addEventListener('keyup', () => { dbgCounters.keyup++; }, true);
 wordInput.addEventListener('compositionstart', () => { dbgCounters.compStart++; }, true);
 
