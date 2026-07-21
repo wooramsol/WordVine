@@ -732,7 +732,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.67</div>
+<div id="verTagBottom">v1.9.68</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -802,7 +802,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.67'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.68'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2153,8 +2153,13 @@ wordInput.addEventListener('input', e => {
   broadcastTyping();
   // 일부 브라우저는 한글 IME 조합 중엔 캔버스 리페인트를 미뤄뒀다가 조합이 끝나야 반영하는
   // 경우가 있어서(draw()는 정상 호출되는데 화면엔 안 나타남), rAF로 한 번 더 강제로 그려서
-  // 조합 도중에도 미리보기가 즉시 눈에 보이게 함.
-  requestAnimationFrame(draw);
+  // 조합 도중에도 미리보기가 즉시 눈에 보이게 함 — 이건 실제로 조합 중일 때만 필요함.
+  // checkPreview()가 이미 위에서 draw()(또는 ensureVisible() 안의 draw())를 동기로 한 번
+  // 호출했으므로, 조합 중이 아닐 때도 매번 여기서 또 그리면 키 입력 한 번에 30x30 보드
+  // 전체를 두 번씩 그리는 셈이 됨 — 오래된/저사양 기기(예: 구형 아이폰)에서 이 중복
+  // 렌더링 부하가 커서, 키 입력 이벤트 처리가 밀리다가 결국 소프트 키보드는 떠 있는데
+  // 이후 입력이 전혀 반영되지 않는 증상으로 이어질 수 있어 조합 중일 때만 남겨둠.
+  if (e.isComposing) requestAnimationFrame(draw);
 });
 wordInput.addEventListener('compositionupdate', () => { checkPreview(); requestAnimationFrame(draw); });
 wordInput.addEventListener('compositionend', () => { checkPreview(); requestAnimationFrame(draw); });
@@ -2594,15 +2599,29 @@ function playGameStart() {
 }
 // 타이핑 — 노이즈 버스트를 공진(bandpass) 필터에 통과시켜 기계식 타자기 특유의
 // 금속 타건 몸통음(clack)을 만드는 공통 헬퍼.
+// 같은 길이(n)의 노이즈 버퍼는 매번 새로 만들지 않고 캐시해서 재사용함 — playTypeTick()이
+// 키 입력마다(글자당 한 번씩) 호출하는데, 매번 ctx.createBuffer()로 새로 할당하고 랜덤값을
+// 채우는 게 저사양 기기(예: 구형 아이폰)에서 누적되면 입력 이벤트 처리에 부담을 줄 수 있어서
+// (키보드는 떠 있는데 이후 입력이 안 먹는 증상의 원인 중 하나로 의심됨) 최적화함. 14ms짜리
+// 노이즈 버스트라 매번 랜덤이 아니어도 소리 차이는 들리지 않음.
+const clackBufCache = new Map();
+function getClackBuffer(ctx, n) {
+  const key = n;
+  let buf = clackBufCache.get(key);
+  if (buf) return buf;
+  buf = ctx.createBuffer(1, n, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+  clackBufCache.set(key, buf);
+  return buf;
+}
 function playClack(delay, dur, hz, q, peak) {
   const ctx = ensureAudioCtx();
   if (!ctx) return;
   if (ctx.state === 'suspended') ctx.resume().catch(() => {});
   const now = ctx.currentTime + delay;
   const n = Math.floor(ctx.sampleRate * dur);
-  const buf = ctx.createBuffer(1, n, ctx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+  const buf = getClackBuffer(ctx, n);
   const src = ctx.createBufferSource();
   src.buffer = buf;
   const bp = ctx.createBiquadFilter();
