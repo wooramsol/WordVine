@@ -736,7 +736,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.82</div>
+<div id="verTagBottom">v1.9.83</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -813,7 +813,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.82'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.83'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2157,9 +2157,9 @@ function updateModeBadge() {
 // 채팅처럼 자유롭게 놓을 수 있게 남겨둠(단어잇기·포획엔 관여 안 함).
 // 공백은 예전엔 채팅용으로 허용했었는데, "영문/숫자를 그냥 타이핑만 해도 화면에 놓아지는 것
 // 처럼 보인다"는 혼란을 줄이기 위해 공백은 아예 입력 자체를 막기로 함.
-// 예전엔 걸러지는 문자가 들어와도 그냥 checkPreview()에서 조용히 막히기만 하고 화면엔 아무
-// 안내도 안 떠서(웹에선 안내가 뜨는 modeBadge 자체를 안 씀) 사용자 입장에선 "입력이 아예 안
-// 먹는" 것처럼 보였음 — 이제 즉시 지우고 토스트로 안내함.
+// v1.9.83: 예전엔 걸러지는 문자(주로 띄어쓰기)가 들어오면 토스트로 안내했는데, 영문/숫자를
+// 실제로 못 놓을 때도 조용히(토스트 없이) 막히는 것과 일관되게 하기 위해 안내 없이 그냥
+// 조용히 지우기만 함("무반응" 처리).
 // e.isComposing이 true인 동안(한글 조합 중)은 절대 건드리지 않아야 조합이 안 끊어짐.
 const HAS_ENGLISH_RE = /[A-Za-z]/; // 영문이 하나라도 섞이면 실제 배치(제출)는 항상 막음 — 타이핑만 허용
 const HAS_PUNCT_RE = /[?!]/; // 물음표/느낌표가 하나라도 섞여도 마찬가지로 배치는 항상 막음 — 타이핑만 허용
@@ -2172,20 +2172,11 @@ const HAS_DIGIT_RE = /[0-9]/;
 // 위 HAS_DIGIT_RE 체크에서 이미 막힘) — board.words의 chat 플래그 등 다른 곳에서 참조하는
 // 부분이 있어 완전히 지우지 않고 남겨둠
 const CHAT_CHARS_RE = /^[0-9]+$/;
-let invalidCharNotified = false;
 wordInput.addEventListener('input', e => {
   playTypeTick();
   if (!e.isComposing) {
     const cleaned = wordInput.value.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9?!]/g, '');
-    if (cleaned !== wordInput.value) {
-      wordInput.value = cleaned;
-      if (!invalidCharNotified) {
-        showToast('한글, 영문, 숫자, ?, !만 입력할 수 있어요. (띄어쓰기 불가)');
-        invalidCharNotified = true;
-      }
-    } else {
-      invalidCharNotified = false;
-    }
+    if (cleaned !== wordInput.value) wordInput.value = cleaned;
   }
   checkPreview();
   broadcastTyping();
