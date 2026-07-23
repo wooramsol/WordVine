@@ -832,7 +832,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.117</div>
+<div id="verTagBottom">v1.9.118</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -918,7 +918,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.117'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.118'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2419,14 +2419,13 @@ function openPopup(cx, cy, px, py) {
   // 모바일에서 스크롤이 일어나면 안 되는데, 이 경로로 들어오는 호출들은 이미 touchend/
   // mouseup 쪽에서 필요한 preventDefault()를 다 해준 뒤라 안전함.
   if (!inBounds(cx, cy)) { closePopup(); return; }
-  // v1.9.117: 혼자 하던 판에 사람이 들어와 "게임시작" 확인 팝업이 떠 있는 동안엔, 버튼을
-  // 누르기 전까지 칸 선택(및 그로 인한 타이핑/미리보기)을 포함한 모든 입력을 막음 — 실제
-  // 배치(submit())는 이미 gameOverOverlay 표시 여부로 막고 있었는데, 칸 선택 자체는 안
-  // 막혀 있어서 "입력은 안 되는데 칸은 계속 고를 수 있는" 애매한 상태였음
-  if (inMultiStartPrompt) {
-    showToast('다른 사람이 들어왔어요. 시작 버튼을 누르면 새 판이 열려요.');
-    return;
-  }
+  // v1.9.117/v1.9.118: 혼자 하던 판에 사람이 들어와 "게임시작" 확인 팝업이 떠 있는 동안엔,
+  // 버튼을 누르기 전까지 칸 선택(및 그로 인한 타이핑/미리보기)을 포함한 모든 입력을 막음 —
+  // 실제 배치(submit())는 이미 gameOverOverlay 표시 여부로 막고 있었는데, 칸 선택 자체는 안
+  // 막혀 있어서 "입력은 안 되는데 칸은 계속 고를 수 있는" 애매한 상태였음. 화면 가운데 이미
+  // "게임시작" 버튼이 큼직하게 떠 있어서 이유가 충분히 명확하므로, 토스트 안내 없이 조용히
+  // 막기만 함(v1.9.118: 안내 토스트가 불필요하다는 피드백으로 제거)
+  if (inMultiStartPrompt) return;
   // v1.9.116: 안내 말풍선이 가리키던 칸과 다른 칸을 선택하면(=사용자가 그 칸을 직접
   // 골라 이동했다는 뜻) 더 이상 가리킬 이유가 없으므로 말풍선을 치움. 말풍선이 가리키던
   // 바로 그 칸을 다시 선택한 경우(onboardCellCoord와 동일)엔 그대로 유지함.
@@ -2716,11 +2715,13 @@ async function submit() {
   // 보이는 입력 브로드캐스트)는 checkPreview()/presence 쪽에서 별도로 막지 않으므로 계속
   // 가능해서, 서로 축하 메시지를 "타이핑으로" 주고받을 수 있음(실제 보드엔 반영 안 됨)
   if (!gameOverOverlay.classList.contains('hidden')) {
-    // inMultiStartPrompt(진짜 게임 종료가 아니라 혼자 하던 판에 사람이 들어와 뜬 팝업)일
-    // 때 "게임이 끝났어요"라고 하면 실제로는 안 끝났는데 끝난 것처럼 오해하게 되므로 구분함
-    showToast(inMultiStartPrompt
-      ? '다른 사람이 들어왔어요. 시작 버튼을 누르면 이 판은 사라지고 새 판이 열려요.'
-      : '게임이 끝났어요. 재시작하면 다시 놓을 수 있어요.');
+    // v1.9.117부터 openPopup() 단계에서 이미 inMultiStartPrompt 동안 칸 선택 자체를 막아서
+    // sel이 항상 null이므로(closePopup은 showMultiplayerStartPrompt에서, 재선택은 openPopup
+    // 가드에서 막힘), 위쪽 "!sel이면 return"을 지나 여기까지 오는 경우는 실질적으로 진짜
+    // 게임 종료(celebrate/restart) 화면뿐임 — inMultiStartPrompt일 땐 이제 도달 자체가 안
+    // 되지만, 혹시 모를 경우를 대비해 그때는 토스트 없이 조용히만 막음(v1.9.118: "다른
+    // 사람이 들어왔어요..." 안내 토스트가 불필요하다는 피드백으로 제거)
+    if (!inMultiStartPrompt) showToast('게임이 끝났어요. 재시작하면 다시 놓을 수 있어요.');
     return;
   }
   const typed = wordInput.value.trim();
