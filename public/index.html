@@ -201,7 +201,15 @@
   /* 랭킹 버튼 — 접속자 수(#userCountTag) 바로 왼쪽에, 같은 상단 줄(#topRight)에
      나란히 붙임. 알약 높이를 #userCountTag와 똑같이 맞춤(font-size/padding 동일) */
   #hallOfFameBtn {
-    font-size: 12px; padding: 6px 10px; border-radius: 20px;
+    /* v1.9.101: font: inherit이 빠져있어서 <button>의 브라우저 기본 폼 컨트롤 폰트(웹
+       데스크톱에서는 이게 body에 지정한 한글 폰트와 달라서, 같은 font-size:12px라도
+       실제 렌더링 크기/굵기가 미묘하게 다르게 보임 — 모바일 브라우저는 기본 버튼 폰트가
+       거의 같아서 이 차이가 안 보였던 것)를 그대로 물려받고 있었음. #userCountTag(같은
+       <button>)는 이미 font:inherit을 쓰고 있어서 #brand("낱말바둑", <div>라 애초에
+       body 폰트를 그대로 물려받음)와 잘 맞았는데, 이 버튼만 어긋나 있던 것 — 그래서
+       "낱말바둑 버튼만 다른 요소보다 작아 보인다"는 느낌을 줬음. font:inherit을 추가해서
+       모든 상단 알약이 정확히 같은 폰트/크기로 렌더링되게 맞춤 */
+    font: inherit; font-size: 12px; padding: 6px 10px; border-radius: 20px;
     border: none; background: #eee7d8; color: #7a6c45; font-weight: 700;
     cursor: pointer; white-space: nowrap;
     box-shadow: 0 2px 8px rgba(0,0,0,.08); /* #brand("낱말바둑")와 같은 그림자 — 눌러볼 수 있는 버튼임을 알려줌 */
@@ -784,7 +792,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.100</div>
+<div id="verTagBottom">v1.9.101</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -868,7 +876,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.100'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.101'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
