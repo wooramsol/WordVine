@@ -832,7 +832,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.118</div>
+<div id="verTagBottom">v1.9.119</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -918,7 +918,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.118'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.119'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2304,6 +2304,10 @@ function positionSelUI() {
 // 가리킬 대상이 없으므로 스스로 숨김.
 const onboardBubbleEl = document.getElementById('onboardBubble');
 let onboardCellCoord = null; // 말풍선이 가리키는 칸 좌표({x,y}) — 안 쓰는 중이면 null
+// v1.9.119: 안내 말풍선은 이 세션(페이지를 새로 열고부터)의 첫 판에만 뜨고, "게임시작"으로
+// 두 번째 판부터는 다시 안 떠야 함 — 이 플래그로 "이미 한 번 보여준 적 있는지" 기억해서,
+// runOnboardingAutoSelect()가 라운드 재시작 때마다 계속 다시 보여주지 않게 막음
+let onboardBubbleShownOnce = false;
 function hideOnboardBubble() {
   onboardCellCoord = null;
   onboardBubbleEl.classList.remove('show');
@@ -2406,10 +2410,14 @@ function runOnboardingAutoSelect() {
   // v1.9.116: 안내 말풍선("단어를 입력해보세요")은 최초 방문자에게만 보여줌 — 안내
   // 패널을 자동으로 띄우는 것과 같은 기준(isReturningUser). 자동 선택 자체는
   // v1.9.115부터 재방문자도 똑같이 받지만, 말풍선 문구는 이미 방법을 아는
-  // 재방문자에게는 굳이 필요 없으므로 여기서만 구분함
-  if (!isReturningUser) {
+  // 재방문자에게는 굳이 필요 없으므로 여기서만 구분함.
+  // v1.9.119: 그마저도 이 세션의 첫 판에서 딱 한 번만 보여주고, "게임시작"으로 두 번째
+  // 판부터는(roundJustRestarted 경로로 이 함수가 다시 불려도) 더 이상 안 보여줌 —
+  // onboardBubbleShownOnce로 "이미 보여줬는지" 기억함
+  if (!isReturningUser && !onboardBubbleShownOnce) {
     onboardCellCoord = { x: onboardCell[0], y: onboardCell[1] };
     positionOnboardBubble();
+    onboardBubbleShownOnce = true;
   }
 }
 
