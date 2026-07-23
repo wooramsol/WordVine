@@ -228,6 +228,18 @@
   }
   #leaderboard.hidden { display: none; }
   #leaderboard ol { list-style: none; }
+  /* 영역 포획 시 그 칸 아이콘이 리더보드로 빨려들어가는 연출. left/top을 JS에서
+     직접 바꾸고 transition으로 브라우저가 자연스럽게 보간하게 함(requestAnimationFrame으로
+     직접 매 프레임 계산하는 것보다 훨씬 가볍고 코드도 단순함). opacity는 살짝 늦게(delay)
+     사라지기 시작해서 날아가는 동안 너무 빨리 옅어지지 않게 함 */
+  .scoreFlyIcon {
+    position: fixed; left: 0; top: 0; transform: translate(-50%, -50%);
+    line-height: 1; pointer-events: none; z-index: 45;
+    transition: left .65s cubic-bezier(.32,.55,.4,1), top .65s cubic-bezier(.32,.55,.4,1),
+      font-size .65s ease-in, opacity .65s ease-in .12s;
+    will-change: left, top, opacity, font-size;
+  }
+  #scoreFlyLayer { pointer-events: none; }
   /* 등수마다 li의 font-size 자체가 다르고(1등이 제일 큼), 그 안의 이름/점수는 전부 em
      단위라 폰트 크기에 비례해서 같이 커지고 작아짐 — 고정 px로 된 "공통 크기" 요소가
      하나도 없게 함. justify-content:center로 각 줄의 내용 전체를 가로 중앙에 정렬.
@@ -664,6 +676,11 @@
 </script>
 <canvas id="board"></canvas>
 
+<!-- 영역이 포획될 때 그 칸의 아이콘들이 리더보드 쪽으로 빨려들어가는 연출용 레이어.
+     자식(.scoreFlyIcon)들은 전부 position:fixed라 이 컨테이너 자체의 크기/위치는
+     의미 없음 — 그냥 붙였다 뗄 대상일 뿐. -->
+<div id="scoreFlyLayer"></div>
+
 <!-- 접속 확인 + 보드 첫 데이터 동기화를 기다리는 동안 보여주는 로딩 스피너.
      로그인 화면이 뜨거나 보드 데이터가 도착하면 사라짐(resolveIdentity/boot 참고) -->
 <div id="pageLoadingOverlay">
@@ -753,7 +770,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.89</div>
+<div id="verTagBottom">v1.9.92</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -837,7 +854,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.89'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.92'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2911,6 +2928,7 @@ function updateLeaderboard() {
   // innerHTML이 아닌 textContent/DOM API로만 채워 넣어 삽입 공격을 원천 차단
   ranked.forEach(([owner, count], i) => {
     const li = document.createElement('li');
+    li.dataset.owner = owner; // 포획 연출(flyScoreIcons)이 목적지 좌표를 찾을 때 씀
     li.style.fontSize = (RANK_FONT_SIZES[i] || RANK_FONT_SIZES[RANK_FONT_SIZES.length - 1]) + 'px';
     const hue = ownerHue(owner);
     if (owner === clientId) li.className = 'me';
@@ -2933,6 +2951,72 @@ function updateLeaderboard() {
     lbListEl.appendChild(li);
   });
   leaderboardEl.classList.remove('hidden');
+}
+
+// ---------- 영역 포획 시 "아이콘이 리더보드로 빨려들어감" 연출 ----------
+// 확보한 영역만큼 점수가 올라간다는 걸 시각적으로 보여주기 위한 순수 연출용 코드.
+// 실제 점수/영역 판정에는 전혀 관여하지 않고, boardRef.on('value')에서 이번에 새로
+// captured된(또는 주인이 바뀐, 즉 뺏긴) 칸을 감지했을 때만 호출됨 — 그 스냅샷을 구독하는
+// 모두가 똑같이 호출하므로 자연히 접속 중인 전원에게 동시에 보임.
+const scoreFlyLayerEl = document.getElementById('scoreFlyLayer');
+
+// 그 owner가 지금 리더보드 목록(상위 2명)에 실제로 표시되고 있으면 그 줄의 정확한 위치로,
+// 3등 이하라 목록엔 없는 사람이면 리더보드 패널 전체(하단 중앙)를 목적지로 삼음 — 어느
+// 쪽이든 "점수가 쌓이는 곳"으로 빨려들어가는 것처럼 보이면 되므로 이 정도면 충분함
+function destinationForOwner(owner) {
+  for (const li of lbListEl.children) {
+    if (li.dataset.owner === owner) {
+      const r = li.getBoundingClientRect();
+      return [r.left + r.width / 2, r.top + r.height / 2];
+    }
+  }
+  const r = leaderboardEl.getBoundingClientRect();
+  if (!r.width && !r.height) return null; // 리더보드 자체가 안 보이는 경우(이론상 거의 없음)
+  return [r.left + r.width / 2, r.bottom - 8];
+}
+
+function spawnFlyIcon(ev) {
+  const dest = destinationForOwner(ev.owner);
+  if (!dest) return;
+  const [sx, sy] = worldToScreen(ev.x, ev.y);
+  // 지금 화면(카메라)에 안 보이는 칸에서 날아오는 아이콘은 어차피 안 보이므로 생략
+  if (sx < -cellSize || sx > innerWidth || sy < -cellSize || sy > innerHeight) return;
+  const originX = sx + cellSize / 2, originY = sy + cellSize / 2;
+  const [destX, destY] = dest;
+  const startSize = Math.max(14, Math.min(28, cellSize * 0.55));
+  const el = document.createElement('span');
+  el.className = 'scoreFlyIcon';
+  el.textContent = ownerEmoji(ev.owner);
+  el.style.left = originX + 'px';
+  el.style.top = originY + 'px';
+  el.style.fontSize = startSize + 'px';
+  el.style.opacity = '1';
+  scoreFlyLayerEl.appendChild(el);
+  // 시작 위치를 먼저 그리고(reflow) 그 다음 프레임에 목적지로 값을 바꿔야 transition이
+  // "그 사이의 이동"으로 인식되어 애니메이션이 실제로 재생됨(바로 바꾸면 스킵되어 버림)
+  requestAnimationFrame(() => {
+    void el.offsetWidth; // 강제 reflow
+    requestAnimationFrame(() => {
+      el.style.left = destX + 'px';
+      el.style.top = destY + 'px';
+      el.style.fontSize = (startSize * 0.35) + 'px';
+      el.style.opacity = '0';
+    });
+  });
+  setTimeout(() => el.remove(), 800);
+}
+
+function flyScoreIcons(events) {
+  // 한 번에 아주 넓은 영역이 통째로 넘어가는 경우(예: 큰 다각형이 한 수로 포획됨) 칸
+  // 수만큼 전부 날리면 화면이 너무 어지럽고 무거워지므로, 고르게 골라서 최대 개수만 날림
+  const MAX_ICONS = 24;
+  let list = events;
+  if (list.length > MAX_ICONS) {
+    const step = list.length / MAX_ICONS;
+    list = Array.from({ length: MAX_ICONS }, (_, i) => events[Math.floor(i * step)]);
+  }
+  // 전부 동시에 팡 터지듯 시작하지 않고 아주 살짝 순차적으로 날려서 "쌓이는" 느낌을 줌
+  list.forEach((ev, i) => setTimeout(() => spawnFlyIcon(ev), i * 25));
 }
 
 // ---------- 랭킹 (구 명예의전당, 회원 누적 점수, 비회원 제외) ----------
@@ -3905,10 +3989,18 @@ async function boot() {
     const now = Date.now();
     const remote = new Set(Object.keys(bc));
     for (const k of [...cells.keys()]) if (!remote.has(k)) cells.delete(k);
+    // 이번 동기화에서 "새로 포획됐거나(직전엔 captured가 아니었거나) 주인이 바뀐(뺏긴)" 칸을
+    // 모아둠 — 리더보드로 아이콘이 빨려들어가는 연출(flyScoreIcons)에 씀. 실제 판정과는
+    // 무관하고 순전히 시각 효과용 부가 데이터라, wasFirst(최초 접속)일 땐 아래에서 그냥 버림
+    const captureEvents = [];
     for (const [k, c] of Object.entries(bc)) {
       const prev = cells.get(k);
       const fresh = prev ? prev.fresh : (firstSync ? 0 : now);
       if (c.captured) {
+        if (!prev || !prev.captured || prev.owner !== c.owner) {
+          const [cx, cy] = k.split(',').map(Number);
+          captureEvents.push({ x: cx, y: cy, owner: c.owner });
+        }
         cells.set(k, { ch: null, dirs: [], captured: true, owner: c.owner, fresh });
       } else {
         const dirs = [c.h && 'h', c.v && 'v'].filter(Boolean);
@@ -3940,6 +4032,9 @@ async function boot() {
     prevCapturedCount = capturedNow;
     updateStats();
     updateLeaderboard();
+    // updateLeaderboard() 직후라야 리더보드 DOM(li들)이 이번 점수 변화를 반영한 최신
+    // 위치에 있으므로, 반드시 그 다음에 호출해야 목적지 좌표가 정확함
+    if (!wasFirst && captureEvents.length) flyScoreIcons(captureEvents);
     checkGameOver();
     // checkGameOver()가 방금 showGameOver()를 새로 띄웠을 수 있음(예: 이미 다른 사람들은
     // 축하 화면을 눌러서 재시작 화면으로 넘어간 판에 뒤늦게 접속한 경우) — 그 직후 바로
