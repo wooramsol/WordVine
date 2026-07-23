@@ -808,7 +808,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.111</div>
+<div id="verTagBottom">v1.9.112</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -891,7 +891,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.111'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.112'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1017,21 +1017,28 @@ function shakeOffset(untilTs, now) {
   return Math.sin(elapsed / 12) * 7 * decay * decay;
 }
 
-// v1.9.111: 입력이 인정돼(단어가 실제로 놓여) 새 글자 칸이 생기면, 그 칸이 짧게 살짝
-// 커졌다 제자리로 돌아오는 "팝" 애니메이션 — 흔들림 애니메이션과 같은 빠르기(POP_MS를
-// SHAKE_MS와 동일하게 맞춤)로 딱 한 번 봉긋 튀어오름. cells는 Firebase로 동기화되는 실제
-// 보드 상태(각 칸의 c.fresh 타임스탬프)라 별도 브로드캐스트 없이도 접속한 모두에게 똑같이
-// 보임(흔들림처럼 presence를 따로 태울 필요가 없음 — 보드에 실제로 글자가 놓이는 사건이라
-// 다들 어차피 같은 동기화를 봄)
+// v1.9.111/v1.9.112: 입력이 인정돼(단어가 실제로 놓여) 새 글자 칸이 생기면, 그 칸(글자칸
+// 자체 — 위에 얹히는 별도 레이어가 아니라 실제로 그 칸을 그리는 cellBox+글자를 직접 스케일
+// 변환해서 그림, draw()의 사용부 참고)이 마치 막 격자 위에 물리적으로 툭 놓인 것처럼 보이게
+// 하는 "팝" 애니메이션. 흔들림 애니메이션과 같은 빠르기(POP_MS를 SHAKE_MS와 동일하게 맞춤).
+// cells는 Firebase로 동기화되는 실제 보드 상태(각 칸의 c.fresh 타임스탬프)라 별도 브로드캐스트
+// 없이도 접속한 모두에게 똑같이 보임(흔들림처럼 presence를 따로 태울 필요가 없음 — 보드에
+// 실제로 글자가 놓이는 사건이라 다들 어차피 같은 동기화를 봄)
 const POP_MS = SHAKE_MS; // 흔들림과 동일한 빠르기로 통일
+// v1.9.112: 처음엔 "1(제자리)에서 살짝 커졌다가 다시 1로" 돌아오는 대칭 봉우리로 만들었는데,
+// 이건 "제자리에서 부풀었다 가라앉는" 느낌이라 "위에서 뚝 떨어져 놓인" 물리적 느낌이 약하다는
+// 피드백을 받음 — 그래서 반대로 "놓인 순간(elapsed=0)엔 확 크게 시작해서, 빠르게 원래 크기로
+// 줄어들며 착지하고, 착지 충격으로 살짝 되튕겼다(스쿼시) 제자리(1)에 안착"하는 곡선으로 변경.
 // freshTs(그 칸이 새로 생긴 시각) 기준 이번 프레임의 스케일 배율(1이 원래 크기). POP_MS가
 // 지나면 그냥 1을 반환(=팝 끝남, 그 뒤로는 기존 flash 반짝임만 계속됨)
 function popScale(freshTs, now) {
   if (!freshTs) return 1;
   const elapsed = now - freshTs;
   if (elapsed < 0 || elapsed >= POP_MS) return 1;
-  const t = elapsed / POP_MS; // 0(막 생김)~1(팝 끝남)
-  return 1 + Math.sin(Math.PI * t) * 0.22; // 0->커짐(중간에 최대 +22%)->1로 돌아오는 봉우리 하나
+  const t = elapsed / POP_MS; // 0(놓인 직후, 가장 큼)~1(다 가라앉음)
+  const settle = Math.pow(1 - t, 1.6); // 착지 감쇠: 초반엔 크게 남아있다가 빠르게 0으로 수렴
+  const bounce = Math.sin(t * Math.PI * 2.4); // 착지 후 살짝 되튕기는(스쿼시&스트레치) 진동 성분
+  return 1 + settle * (0.55 + bounce * 0.15);
 }
 
 // v1.9.110/v1.9.111: myShakeUntil/peerShakeUntil 중 하나라도 아직 살아있거나, 방금 막 생겨
@@ -1791,9 +1798,11 @@ function draw() {
     const flashAlpha = 0.2 + 0.7 * blinkPulse * envelope;
     const flashFill = `hsla(${flashHue}, 90%, 68%, ${flashAlpha})`;
 
-    // v1.9.111: 입력이 막 인정된 칸(방금 새로 생긴 칸)은 짧게 살짝 커졌다 제자리로 돌아오는
-    // 팝 애니메이션 — 칸의 중심을 기준으로 확대해야 사방으로 고르게 튀어나와 보이므로,
-    // 칸 중심으로 이동 -> 스케일 -> 다시 되돌리는 순서로 캔버스 변환을 건 채로 이 칸만 그림
+    // v1.9.112: 입력이 막 인정된 칸(방금 새로 생긴 칸)은 마치 격자 위에 막 툭 놓인 것처럼
+    // 크게 시작해서 빠르게 제 크기로 줄어드는 "팝" 애니메이션 — 별도 레이어가 아니라 이 칸을
+    // 실제로 그리는 cellBox/글자 자체를 스케일 변환한 채로 그림. 칸의 중심을 기준으로 확대해야
+    // 사방으로 고르게 커 보이므로, 칸 중심으로 이동 -> 스케일 -> 다시 되돌리는 순서로 캔버스
+    // 변환을 건 채로 이 칸만 그림
     const pop = popScale(c.fresh, now);
     if (pop !== 1) {
       const ccx = sx + cellSize / 2, ccy = sy + cellSize / 2;
