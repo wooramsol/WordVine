@@ -770,7 +770,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.96</div>
+<div id="verTagBottom">v1.9.97</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -854,7 +854,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.96'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.97'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2951,6 +2951,17 @@ const lbListEl = document.getElementById('lbList');
 // owner -> 직전에 화면에 표시했던 점수. 포획 연출(landIcon)이 아이콘 도착마다 +1씩
 // 갱신하는 카운터도 겸함 — 아래 "영역 포획 시 아이콘이 리더보드로 빨려들어감" 섹션 참고.
 let prevScores = new Map();
+// owner -> 그 owner를 향해 아직 도착하지 않은(리더보드로 날아가는 중인) 아이콘 개수.
+// v1.9.97: 겹치는 두 번의 동기화(예: 내가 방금 포획해서 아이콘이 날아가는 중인데, 그 사이
+// 다른 사람이 딴 곳에서 아무 변화 없는 새 board 스냅샷이 한 번 더 도착하는 경우)가 있으면,
+// updateLeaderboard의 "이번엔 안 바뀐 owner" 분기나 reconcileScoreDisplay가 아직 진행 중인
+// 연출을 무시하고 실제 최종값으로 화면을 먼저 덮어써버려서, 뒤이어 도착하는 landIcon들이
+// 그 값을 기준으로 계속 +1/-1 해버려 잠깐 엉뚱한 숫자가 초록색으로 보였다가 나중에
+// reconcileScoreDisplay가 다시 고쳐지는 버그가 있었음(자세한 원인은 spawnFlyIcon/landIcon/
+// updateLeaderboard/reconcileScoreDisplay 주석 참고). 이 카운터가 0보다 큰 owner는 아직
+// 연출이 끝나기 전이므로, 그 사이엔 아무도 그 owner의 표시값을 실제 최종값으로 강제로
+// 덮어쓰지 않고 landIcon이 스스로 맞출 때까지 기다리게 함
+let pendingIcons = new Map();
 
 // affectedOwners: 이번 동기화에서 flyScoreIcons가 곧 아이콘을 날릴(=점수가 오르거나
 // 내리는 게 그 연출로 표현될) owner들의 Set. 없으면(최초 접속 등) 모든 점수를 그냥
@@ -3009,6 +3020,13 @@ function updateLeaderboard(affectedOwners) {
     const prev = prevScores.has(owner) ? prevScores.get(owner) : 0;
     if (affectedOwners && affectedOwners.has(owner) && count !== prev) {
       cnt.textContent = prev + '점'; // landIcon()이 맞춰줄 때까지 이전 값 유지
+    } else if (pendingIcons.get(owner) > 0) {
+      // v1.9.97: 이번 동기화에선 이 owner가 안 바뀐 것처럼 보여도, 다른(먼저 시작된) 포획
+      // 연출의 아이콘이 아직 이 owner를 향해 날아가는 중일 수 있음 — 그런데도 여기서 실제
+      // 최종값(count)으로 바로 덮어쓰면, 뒤이어 도착하는 landIcon들이 그 값 위에 계속
+      // +1/-1을 더해버려서 잠깐 엉뚱한 숫자가 초록색으로 보였다가 나중에 되돌아오는 버그가
+      // 생김. 그 연출이 다 끝날 때까지는 마지막으로 보여준 값을 그대로 유지함
+      cnt.textContent = prev + '점';
     } else {
       cnt.textContent = count + '점';
       prevScores.set(owner, count);
@@ -3049,21 +3067,39 @@ function bumpScore(owner, delta) {
   }
 }
 
+// owner 하나를 향한 아이콘 하나가 이제 막 날아가기 시작했음/도착했음을 표시.
+// 0 밑으로는 안 내려가게 막아서, 혹시 순서가 어긋나도 pendingIcons가 음수로 새서
+// "영원히 pending"으로 잘못 취급되는 일이 없게 함
+function markIconPending(owner) { pendingIcons.set(owner, (pendingIcons.get(owner) || 0) + 1); }
+function markIconLanded(owner) { pendingIcons.set(owner, Math.max(0, (pendingIcons.get(owner) || 0) - 1)); }
+
 // 아이콘 하나가 리더보드에 실제로 "도착"할 때마다 호출 — 새 주인(ev.owner) 점수를 +1.
 // 뺏긴 칸이었다면(ev.prevOwner) 그 이전 주인 점수도 정확히 같은 순간 -1 해서, 뺏는
 // 쪽이 오르는 속도와 뺏기는 쪽이 내려가는 속도가 항상 같은 박자로 맞게 함
 function landIcon(ev) {
   bumpScore(ev.owner, 1);
-  if (ev.prevOwner) bumpScore(ev.prevOwner, -1);
+  markIconLanded(ev.owner);
+  if (ev.prevOwner) {
+    bumpScore(ev.prevOwner, -1);
+    markIconLanded(ev.prevOwner);
+  }
 }
 
 // 아이콘 개수 제한(MAX_ICONS)이나 화면 밖 컷 때문에 실제 확보한 칸 수보다 landIcon()
 // 호출이 적을 수 있음 — 연출이 다 끝날 시점에 진짜 최종 점수로 확실히 맞춰서, 연출은
 // "느낌"만 담당하고 숫자의 정확성은 항상 보장되게 함
-function reconcileScoreDisplay(owners) {
+// v1.9.97: attempt는 무한 재시도를 막기 위한 내부용 카운터(사용자가 직접 넘길 일 없음) —
+// pendingIcons.get(owner)>0인 owner는 아직 다른 연출의 아이콘이 도착 중이므로 건드리지
+// 않고 미뤄뒀다가, 그 연출이 끝나면(pending이 0이 되면) 그때 최종값으로 맞춤. 다만
+// 무슨 이유로든 pending이 영영 안 풀리는 경우에 대비해 일정 횟수 이상 미뤄지면 그냥
+// 강제로 맞춰서 "느낌은 몰라도 숫자는 항상 맞다"는 원래 보장을 지킴
+function reconcileScoreDisplay(owners, attempt) {
+  attempt = attempt || 0;
   const tally = new Map();
   for (const c of cells.values()) { if (c.captured && c.owner) tally.set(c.owner, (tally.get(c.owner) || 0) + 1); }
+  const stillPending = [];
   for (const owner of owners) {
+    if (attempt < 15 && pendingIcons.get(owner) > 0) { stillPending.push(owner); continue; }
     const real = tally.get(owner) || 0;
     if (prevScores.get(owner) === real) continue;
     prevScores.set(owner, real);
@@ -3075,6 +3111,7 @@ function reconcileScoreDisplay(owners) {
       }
     }
   }
+  if (stillPending.length) setTimeout(() => reconcileScoreDisplay(stillPending, attempt + 1), 200);
 }
 
 // 그 owner가 지금 리더보드 목록(상위 2명)에 실제로 표시되고 있으면 그 줄의 정확한 위치로,
@@ -3098,6 +3135,12 @@ function spawnFlyIcon(ev) {
   const [sx, sy] = worldToScreen(ev.x, ev.y);
   // 지금 화면(카메라)에 안 보이는 칸에서 날아오는 아이콘은 어차피 안 보이므로 생략
   if (sx < -cellSize || sx > innerWidth || sy < -cellSize || sy > innerHeight) return;
+  // v1.9.97: 이 지점을 지나면 landIcon이 반드시 나중에(FLY_DURATION_MS 뒤) 호출되는 게
+  // 보장되므로, 여기서 pending으로 표시해둠 — updateLeaderboard/reconcileScoreDisplay가
+  // 그 사이에 이 owner의 표시값을 실제 최종값으로 성급하게 덮어써서 landIcon과 충돌하는
+  // 걸 막기 위함(자세한 이유는 pendingIcons 선언부 주석 참고)
+  markIconPending(ev.owner);
+  if (ev.prevOwner) markIconPending(ev.prevOwner);
   const originX = sx + cellSize / 2, originY = sy + cellSize / 2;
   const [destX, destY] = dest;
   const startSize = Math.max(14, Math.min(28, cellSize * 0.55));
