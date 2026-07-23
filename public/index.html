@@ -666,8 +666,14 @@
     // 수동으로 "다른 브라우저로 열기"를 안내하는 화면으로 바꿔치기해서, 안 되는 자동
     // 이탈만 믿고 계속 로딩 화면에 갇혀있지 않게 함.
     setTimeout(function () {
+      // v1.9.108: position:fixed + inset:0 + 아주 큰 z-index를 줘서, 이 시점 이후에도
+      // 계속 파싱/실행되는 나머지 body(캔버스, 로딩 스피너 #pageLoadingOverlay z-index:65,
+      // 로그인 모달 #authOverlay z-index:70 등)가 뒤이어 body에 추가되며 뭘 띄우든 전부
+      // 이 안내 화면 밑으로 깔리게 함. 안 그러면 boot()가 그대로 계속 실행돼 로그인 모달이
+      // 이 안내보다 먼저(또는 겹쳐서 위로) 보여서, 유저가 로그인 모달부터 마주치고 나서야
+      // (혹은 그 뒤에 가려서) 이 안내를 보게 되는 순서 뒤바뀜 버그가 있었음
       document.body.innerHTML =
-        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;background:#f5f1e8;font-family:inherit;">' +
+        '<div style="position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:#f5f1e8;font-family:inherit;">' +
         '<div style="font-size:18px;font-weight:700;margin-bottom:12px;color:#1a1a1a;">브라우저에서 열어야 플레이할 수 있어요</div>' +
         '<div style="font-size:14px;color:#555;line-height:1.6;">우측 상단 <b>⋯</b> (점 세개) 메뉴를 누른 뒤<br>"다른 브라우저로 열기"를 선택해주세요.</div>' +
         '</div>';
@@ -697,8 +703,11 @@
       // 이 화면 위에 안내 패널/리더보드 같은 게임 UI가 겹쳐 보이지 않도록
       // window.__wvExitScreen 플래그를 세워서 뒤에 파싱되는 스크립트가 참고하게 함.
       window.__wvExitScreen = true;
+      // v1.9.108: 위 카카오 분기와 같은 이유로 position:fixed + 최상위 z-index를 줘서,
+      // 이 시점 이후 계속 파싱되며 body에 추가되는 나머지 요소(로딩 스피너/로그인 모달 등)에
+      // 절대 가려지지 않게 함
       document.body.innerHTML =
-        '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:24px;text-align:center;background:#f5f1e8;font-family:inherit;">' +
+        '<div style="position:fixed;inset:0;z-index:999999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;background:#f5f1e8;font-family:inherit;">' +
         '<div style="font-size:18px;font-weight:700;margin-bottom:12px;color:#1a1a1a;">브라우저에서 열어야 플레이할 수 있어요</div>' +
         '<div style="font-size:14px;color:#555;line-height:1.6;">우측 상단 <b>⋯</b> (점 세개) 메뉴를 누른 뒤<br>"Safari에서 열기" 또는<br>"브라우저에서 열기"를 선택해주세요.</div>' +
         '</div>';
@@ -799,7 +808,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.107</div>
+<div id="verTagBottom">v1.9.108</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -882,7 +891,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.107'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.108'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -4077,6 +4086,17 @@ function setupPushNotifications() {
 }
 
 async function boot() {
+  // v1.9.108: 인앱 브라우저 탈출 안내 화면이 떠 있는 중이면(카카오/기타 인앱 브라우저 —
+  // 맨 위 IIFE에서 세팅) boot() 자체를 아예 실행하지 않음. 그동안은 z-index로 안내 화면이
+  // 항상 최상단에 보이도록 이미 처리해뒀지만, 그것과 별개로 여기서 계속 로그인 모달을
+  // 띄우거나 파이어베이스 연결을 시도하는 건 어차피 못 쓸 웹뷰에서 의미도 없고, 로딩
+  // 스피너(#pageLoadingOverlay)가 기본으로 켜진 채(hidden 클래스 없음) 안 꺼져서 계속
+  // 남아있는 것도 방지해야 하므로 여기서 명시적으로 꺼줌
+  if (window.__wvExitScreen) {
+    bootStage = 'boot:skipped-wvExitScreen';
+    hidePageLoadingOverlay();
+    return;
+  }
   bootStage = 'boot:start';
   firebase.initializeApp(window.FIREBASE_CONFIG);
   bootStage = 'boot:firebase-initialized';
