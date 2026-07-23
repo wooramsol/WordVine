@@ -808,7 +808,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.113</div>
+<div id="verTagBottom">v1.9.114</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -891,7 +891,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.113'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.114'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2319,6 +2319,28 @@ function autoDetectDir(cx, cy) {
   if (!vOpen && hOpen) return 'h';
 
   return sel?.dir || 'h'; // 둘 다 열려있거나 둘 다 막혀있으면 기존/기본 방향 유지
+}
+
+// v1.9.114: 처음 들어온 사람은 빈 격자판만 보고는 "여기다 뭘 해야 하는지" 바로 감이 안 올 수
+// 있어서, 이미 놓여있는 글자 바로 옆의 빈 칸 하나를 무작위로 골라 반환함 — boot()에서 최초
+// 접속(wasFirst)이고 재방문자가 아닐 때, 이 칸을 openPopup()으로 미리 선택된 상태로 시작해서
+// "여기에 이어서 타이핑하면 되는구나"를 직관적으로 알 수 있게 함
+function pickOnboardingCell() {
+  const seen = new Set();
+  const candidates = [];
+  for (const [k, c] of cells) {
+    if (c.captured || !c.ch) continue; // 글자 칸 옆자리만 후보로 삼음
+    const [x, y] = k.split(',').map(Number);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy;
+      const nk = K(nx, ny);
+      if (!inBounds(nx, ny) || cells.has(nk) || seen.has(nk)) continue; // 범위 밖/이미 차있는 칸 제외
+      seen.add(nk);
+      candidates.push([nx, ny]);
+    }
+  }
+  if (!candidates.length) return null; // 보드에 글자가 하나도 없는 극히 드문 경우
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 function openPopup(cx, cy, px, py) {
@@ -4449,7 +4471,16 @@ async function boot() {
     // 처음부터 축하 화면에 머물지 않고 곧장 재시작 화면으로 맞춰줌
     maybeSyncCelebrationDismissed(board);
     updateRestartPromptText();
-    if (wasFirst) { bootStage = 'boot:board-first-sync-done'; fitBoard(); playGameStart(); hidePageLoadingOverlay(); } // 첫 로드: 단어뭉치를 화면 가운데 적절한 크기로 + 시작음 + 로딩 스피너 숨김
+    if (wasFirst) {
+      bootStage = 'boot:board-first-sync-done'; fitBoard(); playGameStart(); hidePageLoadingOverlay(); // 첫 로드: 단어뭉치를 화면 가운데 적절한 크기로 + 시작음 + 로딩 스피너 숨김
+      // v1.9.114: 정말 처음 들어온 사람(재방문자 아님 — 안내 패널을 자동으로 띄우는 것과
+      // 같은 기준)에게는 기존 글자 옆 빈 칸 하나를 미리 선택된 상태로 시작하게 해서, 안내
+      // 패널을 닫으면 바로 "아, 여기 이어서 타이핑하면 되는구나"를 알 수 있게 함
+      if (!isReturningUser) {
+        const onboardCell = pickOnboardingCell();
+        if (onboardCell) openPopup(onboardCell[0], onboardCell[1]);
+      }
+    }
     else draw();
   });
 }
