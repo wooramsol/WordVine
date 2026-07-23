@@ -808,7 +808,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.109</div>
+<div id="verTagBottom">v1.9.110</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -891,7 +891,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.109'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.110'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1001,14 +1001,39 @@ const livePeers = new Map();        // clientId -> { x, y, dir, typed, ts } — 
 let myShakeUntil = 0;                // 내 흔들림 애니메이션 종료 시각(Date.now() 기준, 0이면 안 흔들림)
 const peerShakeUntil = new Map();    // clientId -> 그 사람의 흔들림 애니메이션 종료 시각
 const peerErrPrev = new Map();       // clientId -> 마지막으로 본 errAt(값이 바뀔 때만 새로 흔들기 시작하기 위한 감지용)
-const SHAKE_MS = 380;                // 흔들림 지속 시간(ms)
+const SHAKE_MS = 300;                // 흔들림 지속 시간(ms) — v1.9.110: 380 -> 300으로 줄여서 더 빠릿하게
 // 흔들림 애니메이션의 이번 프레임 가로 오프셋(px). untilTs가 지금보다 과거면 0(안 흔들림).
-// 시간이 지날수록 진폭이 잦아드는 감쇠 사인파로, 처음엔 크게 흔들리다 점점 멎음
+// v1.9.110: 예전엔 setInterval(120ms) 갱신 주기에만 의존해서 다시 그려졌는데, 그 주기가
+// 사인파 한 주기(당시 약 176ms)보다 훨씬 성겨서 매 프레임이 파형의 뜬금없는 지점을 찍은
+// 것처럼 보여 "프레임 저하"/"폭이 랜덤"하게 느껴졌음. 이제 흔들리는 동안은 별도
+// requestAnimationFrame 루프(ensureShakeLoop)로 매 프레임 다시 그리고, 주기도 한 주기
+// 약 75ms(진폭이 큰 동안 4번 정도 왕복)로 훨씬 빠르게 당겨서 또렷하게 딱딱 끊어치는
+// 느낌을 줌. 감쇠도 선형 대신 제곱(느린 꼬리 없이 확 잦아듦)으로 바꿔 끝맺음을 깔끔하게 함
 function shakeOffset(untilTs, now) {
   const remain = untilTs - now;
   if (remain <= 0) return 0;
   const elapsed = SHAKE_MS - remain;
-  return Math.sin(elapsed / 28) * 6 * (remain / SHAKE_MS);
+  const decay = remain / SHAKE_MS; // 0(거의 끝남)~1(막 시작함)
+  return Math.sin(elapsed / 12) * 7 * decay * decay;
+}
+// v1.9.110: myShakeUntil/peerShakeUntil 중 하나라도 아직 살아있는 동안, 기존
+// setInterval(120ms)보다 훨씬 촘촘한 매 프레임 간격으로 draw()를 계속 호출해서 흔들림이
+// 매끄럽게 보이게 함. 흔들림이 다 끝나면(활성 상태 없음) 스스로 멈춰서 평소엔 rAF 루프가
+// 계속 돌지 않게(배터리 낭비 방지) 함 — 이미 돌고 있으면 중복으로 또 시작하지 않음
+let shakeRafId = null;
+function ensureShakeLoop() {
+  if (shakeRafId) return;
+  function step() {
+    const now = Date.now();
+    let anyActive = now < myShakeUntil;
+    if (!anyActive) {
+      for (const untilTs of peerShakeUntil.values()) { if (now < untilTs) { anyActive = true; break; } }
+    }
+    if (!anyActive) { shakeRafId = null; return; }
+    draw();
+    shakeRafId = requestAnimationFrame(step);
+  }
+  shakeRafId = requestAnimationFrame(step);
 }
 
 // IP 기반 익명 ID 발급 (서버: functions/index.js). 함수 호출 실패 시(로컬 개발 등)엔
@@ -2741,6 +2766,7 @@ async function submit() {
       // 정책 등) 흔들림 애니메이션만큼은 항상 반영되게 함
       myShakeUntil = Date.now() + SHAKE_MS;
       if (myPresenceRef) myPresenceRef.update({ errAt: Date.now() }).catch(() => {});
+      ensureShakeLoop(); // v1.9.110: 흔들리는 동안 매 프레임 다시 그려지도록 시작
       draw();
       playInvalidWord();
     }
@@ -4238,7 +4264,7 @@ async function boot() {
       // 지금 막 난 에러로 착각하면 안 됨)에는 흔들지 않고 기준값만 기억해둠
       const errAt = p && typeof p.errAt === 'number' ? p.errAt : 0;
       const prevErrAt = peerErrPrev.get(id) || 0;
-      if (!presenceFirstSync && errAt > prevErrAt) peerShakeUntil.set(id, Date.now() + SHAKE_MS);
+      if (!presenceFirstSync && errAt > prevErrAt) { peerShakeUntil.set(id, Date.now() + SHAKE_MS); ensureShakeLoop(); }
       peerErrPrev.set(id, errAt);
     }
     presenceFirstSync = false;
