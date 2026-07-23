@@ -275,10 +275,20 @@
        호출해서 처리하고(아래 참고), 네이티브 탭-포커스에는 의존하지 않음.
        예전엔 이 입력창을 선택된 칸 위에 정확히 겹쳐뒀었는데, 그러면 iOS가 그 칸 바로 위에
        붙여넣기/자동완성 말풍선을 띄워서 게임판을 가리는 문제가 있었음(포커스가 항상 코드로만
-       주어지니 굳이 칸 위에 있을 필요가 없었음) — 그래서 화면 왼쪽 아래 구석의 고정된 자리에
-       작게 박아두고, 어떤 칸을 선택하든 화면 위치는 항상 그대로임. */
-    left: 2px; bottom: calc(2px + env(safe-area-inset-bottom, 0px));
-    width: 24px; height: 24px; outline: none; box-shadow: none;
+       주어지니 굳이 칸 위에 있을 필요가 없었음) — 그래서 화면 한구석의 고정된 자리에 작게
+       박아두고, 어떤 칸을 선택하든 화면 위치는 항상 그대로임.
+       v1.9.98: 원래는 왼쪽 "아래" 구석에 뒀었는데, 안드로이드 크롬(Capacitor 앱이 아니라
+       일반 브라우저로 접속했을 때)에서 타이핑 중 화면 전체가 위로 훅 밀려서 격자 위쪽이
+       잘려 보이는 버그가 있었음. preventScroll:true로 focus() 자체가 일으키는 스크롤은
+       막아뒀지만, 그것과는 별개로 브라우저가 "포커스된 입력창이 키보드에 가려지지 않게"
+       비주얼 뷰포트 자체를 계속 밀어올리는 동작까지는 못 막았던 것 — 이 입력창이 화면
+       맨 아래(키보드가 뜨자마자 곧바로 가려지는 자리)에 있었기 때문에 브라우저가 그걸
+       피하려고 화면을 크게 밀어올린 게 원인이었음. 그래서 키보드가 절대 닿지 않는 화면
+       맨 "위" 구석으로 옮겨서 애초에 브라우저가 밀어올릴 필요가 없게 만듦(#brand 알약과
+       겹치지 않도록 아주 작은 6px 크기로 줄임 — 어차피 화면에 안 보이고 탭도 안 되므로
+       크기는 상관없음) */
+    left: 2px; top: calc(2px + env(safe-area-inset-top, 0px));
+    width: 6px; height: 6px; outline: none; box-shadow: none;
     /* v1.9.73: user-select:none/touch-action:none을 여기서 뺐음 — 디버그 오버레이로 실측한
        결과, 구형 아이폰(iOS 15.8.8)에서 한글 자모를 하나 치면 값은 정상 반영되는데
        selectionStart/selectionEnd가 글자 뒤(1)가 아니라 0에 멈춰있는 게 확인됐음(정상이면
@@ -770,7 +780,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.97</div>
+<div id="verTagBottom">v1.9.98</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -854,7 +864,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.97'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.98'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1900,8 +1910,11 @@ setInterval(() => {
 // (아래 clampCamera가 "보드+여백이 이미 다 보인다"고 착각해 계속 중앙으로 되돌림) 그 부분은
 // 영영 볼 수 없었음. 그래서 visualViewport(키보드가 뜨면 실제로 줄어드는 값)를 다시 쓰되,
 // 예전에 이게 "화면이 위로 툭 튀는" 느낌을 줬던 원인은 브라우저 자체의 자동 스크롤과 우리
-// 카메라 재배치가 동시에 겹쳐서였음 — wordInput.focus({preventScroll:true})로 브라우저
-// 자동 스크롤은 이미 막아뒀으니, 카메라만 조용히 다시 계산되어 부드럽게 자리를 잡음
+// 카메라 재배치가 동시에 겹쳐서였음 — wordInput.focus({preventScroll:true})로 focus() 자체가
+// 일으키는 스크롤은 막아뒀고, 거기에 더해(v1.9.98) wordInput을 애초에 키보드가 절대 닿지
+// 않는 화면 맨 위 구석에 둬서, 브라우저가 "포커스된 입력창을 키보드 위로 보이게" 하려고
+// 비주얼 뷰포트를 밀어올릴 필요 자체가 없게 만들었음(#wordInput CSS 주석 참고) — 이제
+// 카메라만 조용히 다시 계산되어 부드럽게 자리를 잡음
 // (HAS_TOUCH는 위쪽 PAN_MARGIN_X 계산에 필요해 파일 상단으로 옮겨 선언해둠)
 // 안내창의 방향 힌트도 실제 화면에서 보게 될 UI에 맞춰 기기별로 다르게 보여줌 —
 // 모바일은 가로/세로 배지, 웹은 Tab 배지+화살표(실제 게임 내 표시와 동일한 모양)
@@ -2109,9 +2122,10 @@ function positionSelUI() {
   modeBadge.classList.add('show');
 }
 
-// wordInput은 더 이상 선택된 칸 위치를 따라다니지 않음(CSS에서 화면 왼쪽 아래 구석에
-// 고정) — iOS가 그 칸 위에 붙여넣기/자동완성 말풍선을 띄워 게임판을 가리는 문제 때문에
-// 일부러 뗐음(자세한 이유는 #wordInput CSS 주석 참고). 포커스는 항상 코드로만 주므로
+// wordInput은 더 이상 선택된 칸 위치를 따라다니지 않음(CSS에서 화면 맨 위 구석에 고정) —
+// iOS가 그 칸 위에 붙여넣기/자동완성 말풍선을 띄워 게임판을 가리는 문제 때문에 일부러
+// 뗐고, v1.9.98부터는 안드로이드 브라우저의 키보드 회피 스크롤을 피하려고 아예 키보드가
+// 안 닿는 맨 위로 옮김(자세한 이유는 #wordInput CSS 주석 참고). 포커스는 항상 코드로만 주므로
 // 화면 위치가 칸과 안 맞아도 타이핑/키보드 동작엔 영향이 없어서, 이 함수는 더 손댈 게
 // 없는 빈 함수로 남겨둠(호출부를 전부 지우는 대신 이렇게 남겨두면 나중에 다시 필요해질
 // 경우에도 호출 지점을 다시 찾을 필요가 없음).
