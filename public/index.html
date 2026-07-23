@@ -70,13 +70,14 @@
   #footerLegalLinks { font-size: 9px; color: #c2b79a; margin-top: 2px; }
   #footerLegalLinks a { color: #a89a78; }
   #footerLegalLinks span { margin: 0 4px; }
-  /* 최초 접속 시에만 안내 패널 뒤에 깔리는 반투명 배경 — "패널을 눌러야 닫힌다"는 걸
-     모르는 사람도 바깥(배경)을 누르면 닫힌다는 익숙한 팝업 패턴으로 자연스럽게 닫을 수
-     있게 함. infoPanel(z-index 40)보다 한 단계 아래(39)라 패널 자체는 안 가려짐.
-     한 번 닫히면 다시는 안 뜸 — 이후 브랜드 아이콘으로 여닫는 건 기존 방식 그대로 유지. */
+  /* 안내 패널(#infoPanel)이 열릴 때마다(최초 자동으로 뜰 때든, 이후 브랜드 아이콘을
+     직접 눌러서 열든) 뒤에 깔리는 반투명 배경 — 다른 모달(#authOverlay/#hofBackdrop/
+     #onlineBackdrop)과 똑같은 톤(rgba(40,36,26,.45))으로 맞춰서, "배경을 누르면
+     닫힌다"는 익숙한 팝업 패턴을 일관되게 유지함(따로 "눌러서 닫기" 문구 없이도 직관적).
+     infoPanel(z-index 40)보다 한 단계 아래(39)라 패널 자체는 안 가려짐. */
   #infoPanelBackdrop {
     position: fixed; inset: 0; z-index: 39;
-    background: rgba(40,36,26,.32);
+    background: rgba(40,36,26,.45);
   }
   #infoPanelBackdrop.hidden { display: none; }
   #infoPanel {
@@ -424,10 +425,6 @@
   .authSwitchLine { text-align: center; font-size: 12px; color: #888; margin-top: 12px; }
   .authSwitchLine a { color: #8a7a4f; font-weight: 700; text-decoration: none; }
   .authSwitchLine a:hover { text-decoration: underline; }
-  /* 랭킹 팝업의 "5초컷 회원가입" 링크로 authOverlay를 다시 열었을 때만 보이는 힌트 —
-     최초 접속 시 반드시 로그인/비회원 선택을 해야 하는 상황에서는 안 보여야 하므로
-     기본은 숨김이고, openAccountUpgradeFlow()에서만 노출함 */
-  #authDismissHint.hidden { display: none; }
   .authIconLabel { font-size: 12px; color: #777; margin-top: 14px; margin-bottom: 6px; }
   /* 아이콘 종류가 많아져서 카드 전체가 한없이 길어지지 않도록, 그리드 자체에
      높이를 주고 그 안에서만 스크롤되게 함(카드의 나머지 부분은 늘 그 자리에 보임) */
@@ -538,13 +535,6 @@
   }
   #hofEmpty { text-align: center; font-size: 13px; color: #999; padding: 20px 0; }
   #hofEmpty.hidden { display: none; }
-  /* 닫기 버튼 대신 하단에 작은 글자 힌트만 둠 — infoPanel의 "눌러서 닫기"와 동일한
-     스타일(배경/테두리 없는 순수 텍스트). 카드 바깥(#hofBackdrop) 클릭으로도 닫히니
-     이 텍스트 자체도 눌러서 닫을 수 있게 함 */
-  #hofCloseHint {
-    text-align: center; margin-top: 16px;
-    font-size: 11px; color: #a89a78; cursor: pointer;
-  }
 
   /* 접속 중인 플레이어 목록 — #hofBackdrop/#hofOverlay/#hofCard(랭킹 팝업)와 완전히 같은
      가운데 모달 패턴을 그대로 재사용. 상단 "n명" 알약을 누르면 뜸(랭킹과는 별도 팝업) */
@@ -588,10 +578,6 @@
   #onlineList .onlineBtn.reportBtn { background: #f7dcdc; color: #a23c3c; border-color: #e29a9a; }
   #onlineList .onlineBtn.reportBtn:hover { background: #f4caca; }
   #onlineList .onlineEmptyRow { justify-content: center; font-size: 13px; color: #999; padding: 12px 0; border-bottom: none; }
-  #onlineCloseHint {
-    text-align: center; margin-top: 16px;
-    font-size: 11px; color: #a89a78; cursor: pointer;
-  }
 
   @keyframes spin { to { transform: rotate(360deg); } }
   /* 접속 확인/사전·보드 첫 동기화를 기다리는 동안 화면 전체를 덮는 로딩 스피너 —
@@ -750,9 +736,8 @@
   <span id="dirHintWeb" style="display:none">7. <span class="dirTabBadge">Tab</span>과 화살표(<span class="dirArrowIcon">&rarr;</span>/<span class="dirArrowIcon">&darr;</span>)로 입력 방향을 바꿀 수 있어요.</span><br>
   8. 차지한 칸이 가장 많은 플레이어가 승리해요.<br>
   9. 버그 발견 시 @wooramsol 로 알려주세요!</div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+  <div style="display:flex;align-items:center;margin-top:8px;">
     <button id="resetBoardBtn" type="button">낱말 초기화 (테스트용)</button>
-    <div style="font-size:11px;color:#a89a78;">눌러서 닫기</div>
   </div>
 </div>
 <div id="topRight">
@@ -795,7 +780,6 @@
         </div>
       </form>
     </div>
-    <div id="hofCloseHint">눌러서 닫기</div>
   </div>
 </div>
 
@@ -808,11 +792,10 @@
   <div id="onlineCard">
     <div id="onlineTitle">현재 접속 중</div>
     <ul id="onlineList"></ul>
-    <div id="onlineCloseHint">눌러서 닫기</div>
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.103</div>
+<div id="verTagBottom">v1.9.104</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -870,7 +853,6 @@
       <div class="authSwitchLine">이미 계정이 있으신가요? <a href="#" id="authGoLoginLink">로그인</a></div>
     </form>
     <div class="authSwitchLine" id="authGuestLine"><a href="#" id="authGoGuestLink">가입 없이 비회원으로 시작하기</a></div>
-    <div class="authSwitchLine hidden" id="authDismissHint">눌러서 닫기</div>
   </div>
 </div>
 
@@ -896,7 +878,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.103'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.104'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2864,7 +2846,12 @@ function playGameOverFanfare() {
 const brand = document.getElementById('brand');
 const infoPanel = document.getElementById('infoPanel');
 const infoPanelBackdrop = document.getElementById('infoPanelBackdrop');
-brand.onclick = () => infoPanel.classList.toggle('hidden'); // 브랜드 아이콘으로 여닫는 건 배경 없이 그대로
+// 브랜드 아이콘으로 여닫을 때도 다른 모달과 똑같이 배경을 같이 켜고 끔(예전엔 최초
+// 자동으로 뜰 때만 배경이 있고, 브랜드 아이콘으로 직접 열 때는 배경 없이 열렸음)
+brand.onclick = () => {
+  const nowHidden = infoPanel.classList.toggle('hidden');
+  infoPanelBackdrop.classList.toggle('hidden', nowHidden);
+};
 // 안내창 자체를 클릭해도 닫히게 함(작은 브랜드 아이콘을 다시 찾아 눌러야 하는 불편을 줄임).
 // 단, 안쪽 초기화 버튼을 누른 경우는 그 버튼 동작이 우선이어야 하므로 닫지 않음
 infoPanel.addEventListener('click', (e) => {
@@ -2872,9 +2859,8 @@ infoPanel.addEventListener('click', (e) => {
   infoPanel.classList.add('hidden');
   infoPanelBackdrop.classList.add('hidden');
 });
-// 최초 자동으로 열린 안내창 전용 — 배경을 눌러도 닫히게 함(팝업 바깥을 누르면 닫히는
-// 익숙한 패턴). 한 번 닫히면 backdrop은 hidden 상태로 남고, 이후 브랜드 아이콘으로
-// 다시 열어도 이 배경은 다시 나타나지 않음(brand.onclick이 건드리지 않으므로).
+// 배경(바깥)을 눌러도 닫히게 함(팝업 바깥을 누르면 닫히는 익숙한 패턴) — "눌러서 닫기"
+// 문구 없이도 어두운 배경만으로 충분히 직관적이라고 판단해 별도 힌트 텍스트는 안 둠
 infoPanelBackdrop.addEventListener('click', () => {
   infoPanel.classList.add('hidden');
   infoPanelBackdrop.classList.add('hidden');
@@ -2969,8 +2955,8 @@ resetBoardBtn.onclick = () => {
 // 인앱 브라우저 탈출 안내 화면이 떠 있는 중이거나, 이미 한 번 신원을 정한 적 있는
 // 재방문자(멤버로 로그인했거나 비회원으로 시작한 적 있음 — resolveIdentity()가 나중에
 // 참고하는 것과 같은 localStorage 값)면 안내 패널을 자동으로 열지 않음. 정말 처음
-// 들어온 사람에게만 기본으로 열어서 보여줌 — 이때만 배경도 같이 깔아서 "패널을 눌러야
-// 닫힌다"는 걸 몰라도 바깥을 눌러 자연스럽게 닫을 수 있게 함
+// 들어온 사람에게만 기본으로 열어서 보여줌(배경은 brand.onclick과 마찬가지로 항상
+// 같이 켜짐)
 let isReturningUser = false;
 try {
   isReturningUser = !!localStorage.getItem('wb-memberUid');
@@ -3242,14 +3228,14 @@ const hofBackdrop = document.getElementById('hofBackdrop');
 const hofOverlay = document.getElementById('hofOverlay');
 const hofListEl = document.getElementById('hofList');
 const hofEmptyEl = document.getElementById('hofEmpty');
-const hofCloseHint = document.getElementById('hofCloseHint');
 const HOF_EMPTY_DEFAULT_MSG = hofEmptyEl.textContent;
 
 function closeHallOfFame() {
   hofOverlay.classList.add('hidden');
   hofBackdrop.classList.add('hidden');
 }
-hofCloseHint.addEventListener('click', closeHallOfFame);
+// "눌러서 닫기" 힌트 문구는 뺐음 — 배경이 어둡게 깔리면(#hofBackdrop) 유저가 바깥을
+// 누르면 닫힌다는 걸 직관적으로 알 수 있어서 별도 안내가 필요 없음
 hofBackdrop.addEventListener('click', closeHallOfFame);
 
 hallOfFameBtn.addEventListener('click', async () => {
@@ -3301,13 +3287,12 @@ hallOfFameBtn.addEventListener('click', async () => {
 const onlineBackdrop = document.getElementById('onlineBackdrop');
 const onlineOverlay = document.getElementById('onlineOverlay');
 const onlineListEl = document.getElementById('onlineList');
-const onlineCloseHint = document.getElementById('onlineCloseHint');
 
 function closeOnlineOverlay() {
   onlineOverlay.classList.add('hidden');
   onlineBackdrop.classList.add('hidden');
 }
-onlineCloseHint.addEventListener('click', closeOnlineOverlay);
+// "눌러서 닫기" 힌트 문구는 뺐음(hofBackdrop과 같은 이유)
 onlineBackdrop.addEventListener('click', closeOnlineOverlay);
 
 function renderOnlineList() {
@@ -3712,7 +3697,6 @@ const authOverlayEl = document.getElementById('authOverlay');
 const authLoginViewEl = document.getElementById('authLoginView');
 const authSignupViewEl = document.getElementById('authSignupView');
 const authGuestLineEl = document.getElementById('authGuestLine');
-const authDismissHintEl = document.getElementById('authDismissHint');
 const hofGuestNoticeEl = document.getElementById('hofGuestNotice');
 const memberLogoutBtn = document.getElementById('memberLogoutBtn');
 const memberDeleteLink = document.getElementById('memberDeleteLink');
@@ -3730,17 +3714,13 @@ function authShowView(view) {
 // 관문이라 배경을 눌러도 안 닫혀야 함. 반면 비회원이 랭킹 팝업에서 "5초컷 회원가입"을
 // 눌러 다시 연 authOverlay(openAccountUpgradeFlow)는 언제든 취소하고 계속 비회원으로
 // 플레이할 수 있어야 하므로 배경 클릭으로 닫을 수 있게 함 — 이 플래그로 두 상황을 구분함
+// "눌러서 닫기" 힌트 문구는 뺐음 — 배경이 어둡게 깔리면 유저가 바깥을 누르면 닫힌다는
+// 걸 직관적으로 알 수 있어서 별도 안내가 필요 없음(hofBackdrop/onlineBackdrop과 같은 이유)
 let authOverlayDismissible = false;
 authOverlayEl.addEventListener('click', e => {
   if (e.target === authOverlayEl && authOverlayDismissible) {
     authOverlayEl.classList.add('hidden');
   }
-});
-// 배경(authOverlayEl 자신)을 눌러야만 닫히던 것과 달리, "눌러서 닫기" 문구는
-// 카드 안쪽 자식 요소라 클릭해도 e.target이 authOverlayEl이 아니어서 안 닫혔음.
-// hofCloseHint/onlineCloseHint처럼 문구 자체에도 직접 닫기 핸들러를 붙여 동일하게 동작시킴.
-authDismissHintEl.addEventListener('click', () => {
-  if (authOverlayDismissible) authOverlayEl.classList.add('hidden');
 });
 
 // 비회원이 게임 도중 랭킹 팝업의 "5초컷 회원가입"으로 계정을 만들 때 씀 — boot()가 이미
@@ -3753,7 +3733,6 @@ function openAccountUpgradeFlow() {
   // 이미 비회원으로 플레이 중인 사람이 회원가입하러 들어온 화면이라 "가입 없이
   // 비회원으로 시작하기" 링크는 의미가 없음(이미 비회원 상태) — 숨김
   authGuestLineEl.classList.add('hidden');
-  authDismissHintEl.classList.remove('hidden');
   authOverlayEl.classList.remove('hidden');
   authShowView('signup');
   buildAuthIconGrid();
