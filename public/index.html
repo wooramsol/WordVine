@@ -234,8 +234,14 @@
        예전엔 배경 없이 흰색 text-shadow로만 글자를 띄웠는데, 보드 색이 진할 때 테두리가
        두꺼워 보이고 격자 위에 뜬 느낌이 강했음 — 대신 다른 상단 알약들(#brand,
        #userCountTag, #hallOfFameBtn)과 같은 크림톤을 아주 옅게(반투명)만 깔아서,
-       격자는 은은히 비쳐 보이되 글자는 충분히 읽히게 함 */
-    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
+       격자는 은은히 비쳐 보이되 글자는 충분히 읽히게 함.
+       v1.9.103: z-index가 10이라 #modeBadge(21)/#wordInput(20)/#toast(30) 같은 다른
+       HUD 요소보다 아래에 깔려서, 화면 아래로 길게 늘어나는 판(리더보드가 top-center에
+       세로로 여러 줄 뜨는 경우)이 세로/가로 전환 배지에 가려지는 문제가 있었음 —
+       실제 팝업(안내 패널/로그인/게임종료 등, z-index 39 이상)만 빼고, 평소 떠 있는
+       HUD 요소들 중에서는 리더보드가 항상 맨 위에 오도록 31로 올림(pointer-events:none이라
+       위에 있어도 다른 요소 클릭을 막지는 않음) */
+    position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 31;
     padding: 6px 12px;
     font-size: 12px; color: #444;
     background: rgba(245, 241, 232, .22);
@@ -806,7 +812,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.102</div>
+<div id="verTagBottom">v1.9.103</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -890,7 +896,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.102'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.103'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
