@@ -753,7 +753,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.91</div>
+<div id="verTagBottom">v1.9.89</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -837,7 +837,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.91'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.89'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1612,7 +1612,7 @@ function draw() {
       // 누구 땅인지 색뿐 아니라 아이콘으로도 한눈에 구분되게 함
       const hue = ownerHue(c.owner);
       const fill = flashing ? flashFill : `hsla(${hue}, 55%, 55%, .32)`;
-      cellBox(sx, sy, fill, `hsl(${hue}, 45%, 45%)`, 3);
+      cellBox(sx, sy, fill, `hsl(${hue}, 45%, 45%)`, 1.5);
       // cellBox()가 직전에 ctx.fillStyle을 배경색(반투명 hue색)으로 남겨두기 때문에,
       // 그 상태 그대로 fillText를 호출하면 (컬러 이모지를 지원 안 하는 일부 환경에서)
       // 글자색이 배경색과 거의 같아져 "배경에 묻혀 보이는" 문제가 있었음 — 이모지를
