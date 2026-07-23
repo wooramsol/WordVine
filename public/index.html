@@ -808,7 +808,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.110</div>
+<div id="verTagBottom">v1.9.111</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -891,7 +891,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.110'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.111'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1016,10 +1016,29 @@ function shakeOffset(untilTs, now) {
   const decay = remain / SHAKE_MS; // 0(거의 끝남)~1(막 시작함)
   return Math.sin(elapsed / 12) * 7 * decay * decay;
 }
-// v1.9.110: myShakeUntil/peerShakeUntil 중 하나라도 아직 살아있는 동안, 기존
-// setInterval(120ms)보다 훨씬 촘촘한 매 프레임 간격으로 draw()를 계속 호출해서 흔들림이
-// 매끄럽게 보이게 함. 흔들림이 다 끝나면(활성 상태 없음) 스스로 멈춰서 평소엔 rAF 루프가
-// 계속 돌지 않게(배터리 낭비 방지) 함 — 이미 돌고 있으면 중복으로 또 시작하지 않음
+
+// v1.9.111: 입력이 인정돼(단어가 실제로 놓여) 새 글자 칸이 생기면, 그 칸이 짧게 살짝
+// 커졌다 제자리로 돌아오는 "팝" 애니메이션 — 흔들림 애니메이션과 같은 빠르기(POP_MS를
+// SHAKE_MS와 동일하게 맞춤)로 딱 한 번 봉긋 튀어오름. cells는 Firebase로 동기화되는 실제
+// 보드 상태(각 칸의 c.fresh 타임스탬프)라 별도 브로드캐스트 없이도 접속한 모두에게 똑같이
+// 보임(흔들림처럼 presence를 따로 태울 필요가 없음 — 보드에 실제로 글자가 놓이는 사건이라
+// 다들 어차피 같은 동기화를 봄)
+const POP_MS = SHAKE_MS; // 흔들림과 동일한 빠르기로 통일
+// freshTs(그 칸이 새로 생긴 시각) 기준 이번 프레임의 스케일 배율(1이 원래 크기). POP_MS가
+// 지나면 그냥 1을 반환(=팝 끝남, 그 뒤로는 기존 flash 반짝임만 계속됨)
+function popScale(freshTs, now) {
+  if (!freshTs) return 1;
+  const elapsed = now - freshTs;
+  if (elapsed < 0 || elapsed >= POP_MS) return 1;
+  const t = elapsed / POP_MS; // 0(막 생김)~1(팝 끝남)
+  return 1 + Math.sin(Math.PI * t) * 0.22; // 0->커짐(중간에 최대 +22%)->1로 돌아오는 봉우리 하나
+}
+
+// v1.9.110/v1.9.111: myShakeUntil/peerShakeUntil 중 하나라도 아직 살아있거나, 방금 막 생겨
+// 아직 팝 애니메이션이 안 끝난 칸이 있는 동안, 기존 setInterval(120ms)보다 훨씬 촘촘한 매
+// 프레임 간격으로 draw()를 계속 호출해서 매끄럽게 보이게 함. 전부 끝나면 스스로 멈춰서
+// 평소엔 rAF 루프가 계속 돌지 않게(배터리 낭비 방지) 함 — 이미 돌고 있으면 중복으로 또
+// 시작하지 않음
 let shakeRafId = null;
 function ensureShakeLoop() {
   if (shakeRafId) return;
@@ -1028,6 +1047,11 @@ function ensureShakeLoop() {
     let anyActive = now < myShakeUntil;
     if (!anyActive) {
       for (const untilTs of peerShakeUntil.values()) { if (now < untilTs) { anyActive = true; break; } }
+    }
+    if (!anyActive) {
+      for (const c of cells.values()) {
+        if (c.fresh && now - c.fresh < POP_MS) { anyActive = true; break; }
+      }
     }
     if (!anyActive) { shakeRafId = null; return; }
     draw();
@@ -1767,6 +1791,18 @@ function draw() {
     const flashAlpha = 0.2 + 0.7 * blinkPulse * envelope;
     const flashFill = `hsla(${flashHue}, 90%, 68%, ${flashAlpha})`;
 
+    // v1.9.111: 입력이 막 인정된 칸(방금 새로 생긴 칸)은 짧게 살짝 커졌다 제자리로 돌아오는
+    // 팝 애니메이션 — 칸의 중심을 기준으로 확대해야 사방으로 고르게 튀어나와 보이므로,
+    // 칸 중심으로 이동 -> 스케일 -> 다시 되돌리는 순서로 캔버스 변환을 건 채로 이 칸만 그림
+    const pop = popScale(c.fresh, now);
+    if (pop !== 1) {
+      const ccx = sx + cellSize / 2, ccy = sy + cellSize / 2;
+      ctx.save();
+      ctx.translate(ccx, ccy);
+      ctx.scale(pop, pop);
+      ctx.translate(-ccx, -ccy);
+    }
+
     if (c.captured) {
       // 땅따먹기로 포획된 영역: 소유자 색 배경 위에 소유자의 과일 아이콘을 그려서
       // 누구 땅인지 색뿐 아니라 아이콘으로도 한눈에 구분되게 함
@@ -1783,6 +1819,7 @@ function draw() {
         ctx.fillStyle = `hsl(${hue}, 55%, 22%)`;
         ctx.fillText(emoji, sx + cellSize / 2, sy + cellSize / 2 + 1);
       }
+      if (pop !== 1) ctx.restore();
       continue;
     }
 
@@ -1791,6 +1828,7 @@ function draw() {
     cellBox(sx, sy, fill, blocked ? '#c9c1af' : '#b8ae98', 1.5);
     ctx.fillStyle = blocked ? '#97907f' : '#222';
     ctx.fillText(c.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
+    if (pop !== 1) ctx.restore();
   }
 
   // 다른 유저들의 실시간 선택 칸 / 입력 중인 글자 (누구나 중간 참여 가능하므로 항상 보이게)
@@ -4323,10 +4361,12 @@ async function boot() {
     // 것과 동시에 그 이전 주인 점수가 같은 박자로 내려가게 함(landIcon 참고). 실제 판정과는
     // 무관하고 순전히 시각 효과용 부가 데이터라, wasFirst(최초 접속)일 땐 아래에서 그냥 버림
     const captureEvents = [];
+    let anyNewlyFresh = false; // v1.9.111: 이번 동기화에서 처음 보는(=fresh가 지금 막 now로 잡힌) 칸이 하나라도 있으면 팝 애니메이션 루프를 깨움
     for (const [k, c] of Object.entries(bc)) {
       if (!remote.has(k)) continue; // 유령 칸(범위 밖)은 무시
       const prev = cells.get(k);
       const fresh = prev ? prev.fresh : (firstSync ? 0 : now);
+      if (!prev && !firstSync) anyNewlyFresh = true;
       if (c.captured) {
         if (!prev || !prev.captured || prev.owner !== c.owner) {
           const [cx, cy] = k.split(',').map(Number);
@@ -4339,6 +4379,9 @@ async function boot() {
         cells.set(k, { ch: c.ch, dirs, captured: false, fresh, by: c.by });
       }
     }
+    // v1.9.111: 새로 생긴 칸이 있으면 팝 애니메이션이 매끄럽게 보이도록 rAF 루프를 깨움
+    // (흔들림과 같은 ensureShakeLoop를 재사용 — 그 루프가 매 프레임 fresh 칸 존재 여부도 같이 체크함)
+    if (anyNewlyFresh) ensureShakeLoop();
     const words = board.words ? (Array.isArray(board.words) ? board.words : Object.values(board.words)) : [];
     usedWords = new Set(words.map(w => w.canonical || w.word));
     placedWordsIndex = new Map();
