@@ -808,7 +808,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.112</div>
+<div id="verTagBottom">v1.9.113</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -891,7 +891,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.112'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.113'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -4374,8 +4374,13 @@ async function boot() {
     for (const [k, c] of Object.entries(bc)) {
       if (!remote.has(k)) continue; // 유령 칸(범위 밖)은 무시
       const prev = cells.get(k);
-      const fresh = prev ? prev.fresh : (firstSync ? 0 : now);
-      if (!prev && !firstSync) anyNewlyFresh = true;
+      // v1.9.113: 포획돼있던 칸(빈 소유지) 위에 이번 동기화로 글자가 새로 올라간 경우도,
+      // 그 칸 입장에선 "이번에 처음 생긴 글자"이므로 (칸 자체가 이전에도 존재했더라도)
+      // 마찬가지로 팝 애니메이션이 나가야 함 — 포획 -> 글자 전환도 "새로 놓임"으로 침
+      const justBecameLetter = !!(prev && prev.captured && !c.captured);
+      const isNew = !prev || justBecameLetter;
+      const fresh = isNew ? (firstSync ? 0 : now) : prev.fresh;
+      if (isNew && !firstSync) anyNewlyFresh = true;
       if (c.captured) {
         if (!prev || !prev.captured || prev.owner !== c.owner) {
           const [cx, cy] = k.split(',').map(Number);
