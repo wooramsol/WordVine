@@ -753,7 +753,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.90</div>
+<div id="verTagBottom">v1.9.89</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -837,7 +837,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.90'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.89'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -970,10 +970,6 @@ let preview = null;                 // { startX, startY, word, conflictTyped }
 let placing = false;
 let placedWordsIndex = new Map();   // canonical 단어 -> { x, y, dir, word } — 중복 단어 위치 하이라이트용
 let dupHighlight = null;            // 지금 입력이 중복 단어일 때, 이미 보드에 있는 그 단어들의 위치
-// clientId -> 그 사람이 마지막으로 놓은(채팅 제외) 단어 { x, y, dir, word } — 누가 최근에
-// 어떻게 낱말을 이어붙였는지 계속 은은하게 보여줘서, 새로 들어온 사람도 "아 저렇게 하는구나"
-// 하고 이해하기 쉽게 하려는 용도. board.words에서 매 동기화마다 다시 계산함(별도 저장 없음).
-let lastWordByOwner = new Map();
 
 // ---------- 두음법칙 ----------
 function dueumVariants(ch) {
@@ -1635,24 +1631,6 @@ function draw() {
     cellBox(sx, sy, fill, blocked ? '#c9c1af' : '#b8ae98', 1.5);
     ctx.fillStyle = blocked ? '#97907f' : '#222';
     ctx.fillText(c.ch, sx + cellSize / 2, sy + cellSize / 2 + 1);
-  }
-
-  // 유저별 "마지막으로 놓은 단어"를 계속 은은하게 테두리로 표시 — 완성 직후 2초짜리
-  // flashing 효과가 끝나고 나면 이어서, 그 사람이 다음 단어를 놓기 전까지 계속 남아있음.
-  // 접속중인 모두가 같은 board.words를 보고 있으므로 자연히 다 같이 동시에 보임.
-  for (const [owner, w] of lastWordByOwner) {
-    const hue = ownerHue(owner);
-    const ldx = w.dir === 'h' ? 1 : 0, ldy = w.dir === 'v' ? 1 : 0;
-    for (let i = 0; i < w.word.length; i++) {
-      const cx = w.x + ldx * i, cy = w.y + ldy * i;
-      const c = cells.get(K(cx, cy));
-      // 그 사이 다른 사람이 이 칸을 다시 건드렸다면(마지막 배치자가 바뀌었다면) 흔적을 지움
-      if (!c || c.captured || c.by !== owner) continue;
-      if (cx < x0 - 1 || cx > x1 || cy < y0 - 1 || cy > y1) continue;
-      if (now - (c.fresh || 0) < 2000) continue; // 완성 플래시와 겹쳐서 과해지지 않게, 끝난 뒤부터 이어서
-      const [sx, sy] = worldToScreen(cx, cy);
-      cellBox(sx, sy, `hsla(${hue}, 70%, 60%, .16)`, `hsl(${hue}, 55%, 45%)`, 2);
-    }
   }
 
   // 다른 유저들의 실시간 선택 칸 / 입력 중인 글자 (누구나 중간 참여 가능하므로 항상 보이게)
@@ -3940,14 +3918,9 @@ async function boot() {
     const words = board.words ? (Array.isArray(board.words) ? board.words : Object.values(board.words)) : [];
     usedWords = new Set(words.map(w => w.canonical || w.word));
     placedWordsIndex = new Map();
-    lastWordByOwner = new Map();
     for (const w of words) {
       const canon = w.canonical || w.word;
       placedWordsIndex.set(canon, { x: w.x, y: w.y, dir: w.dir, word: w.word });
-      // 채팅은 제외(진짜로 "놓인" 단어만) — words는 놓인 순서대로 push되어 있어서 뒤로
-      // 갈수록 최신이므로, 같은 by(clientId)를 계속 덮어쓰면 결국 각자의 가장 최근
-      // 단어 하나만 남음
-      if (!w.chat && w.by) lastWordByOwner.set(w.by, { x: w.x, y: w.y, dir: w.dir, word: w.word });
     }
     const wasFirst = firstSync;
     firstSync = false;
