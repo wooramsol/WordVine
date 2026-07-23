@@ -799,7 +799,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.105</div>
+<div id="verTagBottom">v1.9.106</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -882,7 +882,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.105'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.106'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -1214,7 +1214,14 @@ function resolveChatPlace(typed, x, y, dir, getCell) {
 // 치고, 나머지 안쪽 변(글자로 막힌 변)의 개수가 2 이상일 때만 포획됨
 function findCapturedRegions(getCell, K, newlyPlacedCoords) {
   const globalVisited = new Set();
-  const captured = [];
+  // v1.9.106: 한 번의 배치로 서로 다른 곳(예: 글자 하나로 마지막 틈을 메워서 그 양옆이
+  // 동시에 완전히 둘러싸이는 경우)이 둘 이상 한꺼번에 새로 둘러싸일 수 있음 — 예전엔
+  // 찾아낸 영역을 전부 captured 배열에 그냥 다 합쳐 넣어서, 한 수로 양쪽 다 통째로
+  // 포획해버리는 문제가 있었음. 이제 영역을 단위(regions)로 따로 모아뒀다가,
+  // 맨 마지막에 그중 가장 큰(칸이 가장 많은) 영역 하나만 골라서 포획하고 나머지는
+  // 그대로 빈 칸으로 남김(크기가 같으면 무작위로 하나를 고름) — 자세한 선택 로직은
+  // 함수 맨 아래 참고
+  const regions = [];
   const NEI = (cx, cy) => [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]];
 
   for (const [sx0, sy0] of newlyPlacedCoords) {
@@ -1245,10 +1252,16 @@ function findCapturedRegions(getCell, K, newlyPlacedCoords) {
       const freeSides = (minX === BOARD_MIN ? 1 : 0) + (maxX === BOARD_MAX ? 1 : 0) +
                          (minY === BOARD_MIN ? 1 : 0) + (maxY === BOARD_MAX ? 1 : 0);
       const wordSides = 4 - freeSides;
-      if (wordSides >= 2) captured.push(...region);
+      if (wordSides >= 2) regions.push(region);
     }
   }
-  return captured;
+  // 새로 둘러싸인 영역이 없으면 빈 배열, 하나면 그대로, 둘 이상이면 그중 가장 칸 수가
+  // 많은 영역만 골라 반환(동률이면 무작위 하나) — 나머지 영역은 포획하지 않고 그대로 둠
+  if (regions.length <= 1) return regions[0] || [];
+  let maxLen = 0;
+  for (const r of regions) { if (r.length > maxLen) maxLen = r.length; }
+  const biggest = regions.filter(r => r.length === maxLen);
+  return biggest[Math.floor(Math.random() * biggest.length)];
 }
 
 // region(좌표 배열)의 bounding box 기준으로, findCapturedRegions와 똑같은 "포위한 네 변 중
