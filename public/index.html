@@ -349,15 +349,17 @@
   #modeBadge {
     position: fixed; z-index: 21; display: none;
     padding: 8px 14px; border-radius: 12px; font-size: 14px; font-weight: 700;
-    background: #eee7d8; color: #6b5e3f; border: 1.5px solid #cfc7b5;
+    /* v1.9.128: #toast처럼 배경을 반투명하게 바꿔서(같은 .55 알파) 뒤에 있는 게임판이
+       비쳐 보이게 함 — 다만 이 배지는 토스트와 달리 그림자(box-shadow)는 그대로 남김 */
+    background: rgba(238,231,216,.55); color: #6b5e3f; border: 1.5px solid #cfc7b5;
     white-space: nowrap; transform: translate(-50%, -155%);
     box-shadow: 0 2px 8px rgba(0,0,0,.18);
     cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
     align-items: center; justify-content: center;
   }
   #modeBadge.show { display: flex; }
-  #modeBadge.ok { background: #dcefdb; color: #2c6e2f; border-color: #8fcf93; }
-  #modeBadge.err { background: #f7dcdc; color: #a23c3c; border-color: #e29a9a; }
+  #modeBadge.ok { background: rgba(220,239,219,.55); color: #2c6e2f; border-color: #8fcf93; }
+  #modeBadge.err { background: rgba(247,220,220,.55); color: #a23c3c; border-color: #e29a9a; }
   /* v1.9.116/v1.9.117: 최초 방문자 안내 말풍선 — 자동 선택된 칸 위에 떠서 "단어를
      입력해보세요"를 알려줌. pointer-events:none으로 아래 칸 탭을 절대 가로채지 않게 하고,
      살짝 위아래로 들썩이는 애니메이션으로 눈에 띄게 함(타이핑을 시작하거나 다른 칸을 고르면
@@ -858,7 +860,7 @@
   </div>
 </div>
 <div id="footerCredit"><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.127</div>
+<div id="verTagBottom">v1.9.128</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -944,7 +946,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.127'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.128'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
