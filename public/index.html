@@ -391,10 +391,14 @@
     background: rgba(255,255,255,.55); color: #1a1a1a; padding: 9px 18px;
     border: 1px solid rgba(216,210,196,.7);
     border-radius: 20px; font-size: 13px; z-index: 30; display: none;
-    max-width: 90vw; text-align: center;
+    /* v1.9.127: "기존 단어와 최소 한 글자는 이어져야 합니다."까지는 한 줄로 나오고,
+       그보다 긴 문구부터 줄바꿈되게 폭을 맞춤 — 13px 기준 그 문구의 실제 렌더 폭
+       (~236px) + 좌우 패딩(36px) + 여유(약 10px) ≈ 284px. 아주 좁은 화면(옛날 저가
+       기기 등)에서도 화면 밖으로 안 넘치도록 90vw와 비교해 더 작은 쪽을 씀 */
+    max-width: min(284px, 90vw); text-align: center;
     /* width를 따로 안 주면(position:fixed + left:50%만 있고 right는 없음) 내용 길이에
        맞춰 자동으로 줄어드는 shrink-to-fit 폭이 적용됨 — 그래서 짧은 문구는 자연히
-       한 줄로만 차지하고, max-width(90vw)를 넘는 긴 문구만 다음 줄로 자연스럽게 줄바꿈됨.
+       한 줄로만 차지하고, max-width를 넘는 긴 문구만 다음 줄로 자연스럽게 줄바꿈됨.
        말줄임표로 잘라내지 않음(내용이 잘리면 안 되는 정보라서) */
   }
   /* 새 플레이어 등장 알림 — 화면 위쪽(화면 밖)에서 아래로 내려오듯 나타났다가 잠깐
@@ -854,7 +858,7 @@
   </div>
 </div>
 <div id="footerCredit"><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.126</div>
+<div id="verTagBottom">v1.9.127</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -940,7 +944,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.126'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.127'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
