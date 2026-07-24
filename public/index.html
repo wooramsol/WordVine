@@ -65,12 +65,13 @@
   }
   #footerCredit a { color: #a08c5a; text-decoration: none; }
   #footerCredit a:hover { text-decoration: underline; }
-  /* "Created by" 링크는 기존 하단 푸터(저작권/약관)에서 빼서 격자판 바로 아래로 옮김 —
+  /* "Created by" 링크와 저작권 문구는 기존 하단 푸터에서 빼서 격자판 바로 아래로 옮김 —
      위치는 격자판이 항상 화면 중앙에 꽉 차게 배치되는 걸 이용해, draw()가 끝날 때마다
-     positionBoardCredit()이 격자판의 실제 화면상 아래 경계에 맞춰 top을 갱신함(고정값 아님) */
+     positionBoardCredit()이 격자판의 실제 화면상 아래 경계에 맞춰 top을 갱신함(고정값 아님).
+     개인정보처리방침/이용약관 링크(#footerLegalLinks)만 기존 하단 푸터에 그대로 남음 */
   #boardCredit {
     position: fixed; left: 50%; transform: translateX(-50%); z-index: 4;
-    font-size: 11px; text-align: center; visibility: hidden;
+    font-size: 11px; text-align: center; line-height: 1.6; visibility: hidden;
   }
   #boardCredit a { color: #a08c5a; text-decoration: none; }
   #boardCredit a:hover { text-decoration: underline; }
@@ -750,12 +751,12 @@
 </script>
 <canvas id="board"></canvas>
 
-<!-- "Created by" 링크 — 예전엔 하단 푸터(#footerCredit) 안에 저작권 문구와 같이 있었는데,
-     격자판 바로 아래로 옮김. 격자판은 항상 화면 중앙에 꽉 차게 고정 배치되므로(줌 기능
-     없음, clampCamera() 참고), positionBoardCredit()이 매 draw()마다 격자판의 실제
-     화면상 아래 경계에 맞춰 위치를 갱신함. 하단 푸터(#footerCredit)의 저작권/약관
-     링크는 그대로 유지함 -->
-<div id="boardCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a></div>
+<!-- "Created by" 링크 + 저작권 문구 — 예전엔 하단 푸터(#footerCredit) 안에 같이 있었는데,
+     둘 다 격자판 바로 아래로 옮김. 격자판은 항상 화면 중앙에 꽉 차게 고정 배치되므로(줌
+     기능 없음, clampCamera() 참고), positionBoardCredit()이 매 draw()마다 격자판의 실제
+     화면상 아래 경계에 맞춰 위치를 갱신함. 하단 푸터(#footerCredit)에는 개인정보처리방침/
+     이용약관 링크만 그대로 남김 -->
+<div id="boardCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div></div>
 
 <!-- 영역이 포획될 때 그 칸의 아이콘들이 리더보드 쪽으로 빨려들어가는 연출용 레이어.
      자식(.scoreFlyIcon)들은 전부 position:fixed라 이 컨테이너 자체의 크기/위치는
@@ -847,8 +848,8 @@
     <ul id="onlineList"></ul>
   </div>
 </div>
-<div id="footerCredit"><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.122</div>
+<div id="footerCredit"><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
+<div id="verTagBottom">v1.9.123</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -934,7 +935,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.122'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.123'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
