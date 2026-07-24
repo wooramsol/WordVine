@@ -832,7 +832,7 @@
   </div>
 </div>
 <div id="footerCredit"><a href="https://instagram.com/wooramsol" target="_blank" rel="noopener">Created by @wooramsol</a><div id="footerCopyright">Copyright &copy; 2026 All rights reserved</div><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.119</div>
+<div id="verTagBottom">v1.9.120</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -918,7 +918,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.119'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.120'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2154,12 +2154,11 @@ function ensureVisible() {
   const vw = innerWidth, vh = assumedVisibleBottom();
   const targetY = targetSelScreenY();
 
-  // 스팬이 화면보다 크면 축소
-  const spanW = (maxX - minX + 2) * cellSize;
-  const spanH = (maxY - minY + 2) * cellSize;
-  if (spanW > vw || spanH > vh) {
-    cellSize = Math.max(18, Math.min(vw / (maxX - minX + 2), vh / (maxY - minY + 2)));
-  }
+  // v1.9.120: 예전엔 타이핑 중인 단어(미리보기 포함)가 화면보다 길어지면 칸 크기 자체를
+  // 줄여서(줌아웃) 억지로 다 보이게 했는데, 모바일에서 칸이 계속 작아졌다 커졌다 하며
+  // 글자를 읽기 힘들다는 피드백을 받아 제거함 — 이제 칸 크기는 항상 고정이고, 대신 아래
+  // 카메라 이동(패닝)만으로 지금 입력 중인 부분이 화면 안에 들어오게 함(다 안 보이면
+  // 화면 밖으로 스크롤되듯 넘어감)
 
   // 전부 보이면 그대로, 벗어나면 스팬 중심을 기준점(targetY)으로
   const [sx0, sy0] = worldToScreen(minX, minY);
@@ -4458,7 +4457,7 @@ async function boot() {
 
   // 보드 실시간 반영
   let firstSync = true;
-  let prevWordCount = 0, prevCapturedCount = 0; // 단어 완성/영역 포획 효과음의 이전 스냅샷 기준값
+  let prevWordCount = 0; // 단어 완성 효과음의 이전 스냅샷 기준값(포획 효과음은 captureEvents로 판단 — 아래 참고)
   boardRef.on('value', snap => {
     const board = snap.val() || { cells: {}, words: [] };
     lastBoardVersionForSolo = board.version || 0;
@@ -4531,7 +4530,6 @@ async function boot() {
     // 스냅샷을 구독하고 있으므로, 여기서 이전 스냅샷과 비교해 늘어났을 때만 재생하면
     // 자연히 전원에게 동시에 들림. 초기 로드(wasFirst) 때는 기존 상태를 기억만 하고
     // 소리는 내지 않음(안 그러면 접속하자마자 이미 놓인 모든 단어만큼 소리가 남).
-    const capturedNow = [...cells.values()].filter(c => c.captured).length;
     // v1.9.117: 단어 수는 정상적인 플레이 중엔 절대 줄어들지 않고(놓기만 하지 지우지 않음),
     // 판이 통째로 재시작(buildSeedBoard로 board.set)될 때만 확 줄어듦 — 이 사실을 이용해서
     // "방금 판이 새로 시작됐다"를 별도 필드 없이 감지함(runOnboardingAutoSelect 재호출용)
@@ -4541,10 +4539,13 @@ async function boot() {
         const newest = words[words.length - 1];
         if (newest && !newest.chat) playWordComplete();
       }
-      if (capturedNow > prevCapturedCount) setTimeout(playScoreGain, 150);
+      // v1.9.120: 예전엔 "전체 포획 칸 수가 늘었을 때만" 획득 소리를 냈는데, 이미 남이
+      // 차지한 땅을 재포획(스틸)하면 포획 칸 총수는 그대로라(내 걸로 주인만 바뀜) 소리가
+      // 안 나던 문제가 있었음 — captureEvents는 새로 포획됐든(주인 없다가 생김) 뺏겼든
+      // (주인이 바뀜) 둘 다 잡아내므로, 이걸 기준으로 바꿔서 재포획 때도 소리가 나게 함
+      if (captureEvents.length > 0) setTimeout(playScoreGain, 150);
     }
     prevWordCount = words.length;
-    prevCapturedCount = capturedNow;
     updateStats();
     // wasFirst(최초 접속)일 땐 affectedOwners를 안 넘겨서, 이미 있던 점수를 애니메이션
     // 없이 바로 보여줌 — 그 점수는 내가 지금 막 만든 게 아니라 이미 예전에 확보된 것이므로.
