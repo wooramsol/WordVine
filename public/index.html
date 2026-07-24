@@ -384,7 +384,11 @@
   }
   #toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: rgba(40,40,40,.92); color: #fff; padding: 9px 18px;
+    /* v1.9.125: 예전엔 거의 불투명한 검정(rgba(40,40,40,.92))이라 뒤에 있는 게임판을
+       가렸음 — #gameOverRestartBtn("게임시작" 버튼)과 같은 반투명 흰 카드 톤으로 맞춰서
+       일관성도 맞추고, 뒤쪽 플레이 화면(놓인 글자/포획된 칸)이 비쳐 보이게 함 */
+    background: rgba(255,255,255,.9); color: #1a1a1a; padding: 9px 18px;
+    border: 1px solid #d8d2c4; box-shadow: 0 8px 28px rgba(0,0,0,.18);
     border-radius: 20px; font-size: 13px; z-index: 30; display: none;
     max-width: 90vw; text-align: center;
     /* width를 따로 안 주면(position:fixed + left:50%만 있고 right는 없음) 내용 길이에
@@ -849,7 +853,7 @@
   </div>
 </div>
 <div id="footerCredit"><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.124</div>
+<div id="verTagBottom">v1.9.125</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -935,7 +939,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.124'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.125'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2936,12 +2940,13 @@ async function submit() {
           .transaction(cur => (cur || 0) + placedInfo.capturedCount)
           .catch(() => {});
       }
-      const capNote = placedInfo.capturedCount > 0 ? ` — 영역 ${placedInfo.capturedCount}칸 포획!` : '';
+      // v1.9.125: "— 영역 n칸 포획!" 문구는 뺌 — 어차피 포획된 칸이 보드에 색/아이콘으로
+      // 바로 보이니 텍스트로 또 알려줄 필요가 없다는 피드백
       if (placedInfo.chat) {
-        showToast(`'${placedInfo.word}' 입력했어요${capNote}`);
+        showToast(`'${placedInfo.word}' 입력했어요`);
       } else {
         const note = placedInfo.canonical ? ` (두음법칙: ${placedInfo.canonical})` : '';
-        showToast(`'${placedInfo.word}' 완성!${note}${capNote}`);
+        showToast(`'${placedInfo.word}' 완성!${note}`);
         // 단어 완성/영역 포획 효과음은 여기서 직접 재생하지 않음 — 나뿐 아니라 접속 중인
         // 모든 사람에게 들려야 하므로, boardRef.on('value') 쪽에서 이전/이후 스냅샷을 비교해
         // 재생함(모든 클라이언트가 같은 값 변화를 구독하고 있어서 자연히 다 같이 들림)
