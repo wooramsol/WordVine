@@ -107,20 +107,12 @@
   }
   #infoPanel b { color: #1a1a1a; font-size: 15px; }
   #infoPanel.hidden { display: none; }
-  /* 안내 문구 속 방향 배지 — 모바일에서 실제로 뜨는 #modeBadge(가로/세로 전환 배지)와
-     똑같은 생김새(알약 모양, 크림색 배경 + 테두리, 갈색 굵은 글씨)를 그대로 축소해서
-     보여줌. 원형 화살표 아이콘으로 만들었더니 실제 화면에서 보는 배지랑 달라서 오히려
-     헷갈린다는 피드백에 따라, #modeBadge 스타일을 그대로 미니 버전으로 재사용 */
-  .dirIconBadge {
-    display: inline-flex; align-items: center; justify-content: center;
-    padding: 2px 7px; border-radius: 8px; font-size: 11px; font-weight: 700;
-    background: #eee7d8; color: #6b5e3f; border: 1.5px solid #cfc7b5;
-    vertical-align: 1px; margin: 0 2px;
-  }
-  /* 웹(비터치)용 방향 안내 — 실제로 칸 위에 뜨는 Tab 알약 배지 + 화살표(→/↓) 조합을
-     그대로 미니 버전으로 재현. 모바일용(.dirIconBadge, 가로/세로 배지)과는 다른 기기라
-     보게 되는 실제 UI가 다르므로 각 기기에 맞는 안내만 보여줌(HAS_TOUCH로 JS에서 토글) */
-  .dirTabBadge {
+  /* 안내 문구 속 방향 배지 — 이제 웹/모바일 둘 다 "선택 칸 윗변에 걸치는 space 알약"
+     (draw()에서 캔버스에 직접 그림, 예전엔 웹 전용이었고 이름도 Tab이었음)으로 방향을
+     바꾸므로, 안내 문구 안의 미니 배지도 기기 구분 없이 이 하나만 씀(예전엔 모바일 전용
+     .dirIconBadge/#modeBadge 가로세로 배지가 따로 있었는데 모바일 쪽 버튼 자체가 없어져
+     같이 정리함) */
+  .dirSpaceBadge {
     display: inline-flex; align-items: center; justify-content: center;
     padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700;
     background: #8a7a4f; color: #fff; vertical-align: 1px; margin: 0 2px;
@@ -344,22 +336,10 @@
        여전히 막힘 — -webkit-touch-callout(길게 눌렀을 때 뜨는 메뉴)만 남겨둠. */
     -webkit-touch-callout: none;
   }
-  /* 방향 전환 배지 — 터치 기기(모바일)에서만 씀. 선택 칸 위에 띄우고, 터치하기 편하도록
-     넉넉한 크기로 만들고, 그리드 칸과 안 겹치게 충분히 띄움. 제출은 키보드 Enter로만 함. */
-  #modeBadge {
-    position: fixed; z-index: 21; display: none;
-    padding: 8px 14px; border-radius: 12px; font-size: 14px; font-weight: 700;
-    /* v1.9.128: #toast처럼 배경을 반투명하게 바꿔서(같은 .55 알파) 뒤에 있는 게임판이
-       비쳐 보이게 함 — 다만 이 배지는 토스트와 달리 그림자(box-shadow)는 그대로 남김 */
-    background: rgba(238,231,216,.55); color: #6b5e3f; border: 1.5px solid #cfc7b5;
-    white-space: nowrap; transform: translate(-50%, -155%);
-    box-shadow: 0 2px 8px rgba(0,0,0,.18);
-    cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
-    align-items: center; justify-content: center;
-  }
-  #modeBadge.show { display: flex; }
-  #modeBadge.ok { background: rgba(220,239,219,.55); color: #2c6e2f; border-color: #8fcf93; }
-  #modeBadge.err { background: rgba(247,220,220,.55); color: #a23c3c; border-color: #e29a9a; }
+  /* v1.9.129: 방향 전환 버튼(#modeBadge, 터치 기기 전용 "가로/세로" 탭 버튼)은 완전히
+     제거함 — 이제 웹/모바일 둘 다 스페이스 키(모바일은 키보드의 스페이스바)로 방향을
+     바꾸고, 선택 칸 위에는 draw()가 캔버스에 직접 그리는 "space" 알약(예전엔 Tab이라는
+     이름으로 웹에만 있었음)이 기기 구분 없이 뜸 */
   /* v1.9.116/v1.9.117: 최초 방문자 안내 말풍선 — 자동 선택된 칸 위에 떠서 "단어를
      입력해보세요"를 알려줌. pointer-events:none으로 아래 칸 탭을 절대 가로채지 않게 하고,
      살짝 위아래로 들썩이는 애니메이션으로 눈에 띄게 함(타이핑을 시작하거나 다른 칸을 고르면
@@ -797,8 +777,8 @@
   4. 남이 차지한 땅도 다시 뺏을 수 있어요.<br>
   5. 한 줄짜리 울타리는 인정되지 않아요.<br>
   6. 표준국어대사전 기준 명사만 인정돼요.<br>
-  <span id="dirHintTouch" style="display:none">7. <span class="dirIconBadge">가로</span><span class="dirIconBadge">세로</span> 배지를 눌러 입력 방향을 바꿀 수 있어요.</span>
-  <span id="dirHintWeb" style="display:none">7. <span class="dirTabBadge">Tab</span>과 화살표(<span class="dirArrowIcon">&rarr;</span>/<span class="dirArrowIcon">&darr;</span>)로 입력 방향을 바꿀 수 있어요.</span><br>
+  <span id="dirHintTouch" style="display:none">7. 키보드의 <span class="dirSpaceBadge">space</span>를 누르면 입력 방향을 바꿀 수 있어요.</span>
+  <span id="dirHintWeb" style="display:none">7. <span class="dirSpaceBadge">space</span>와 화살표(<span class="dirArrowIcon">&rarr;</span>/<span class="dirArrowIcon">&darr;</span>)로 입력 방향을 바꿀 수 있어요.</span><br>
   8. 차지한 칸이 가장 많은 플레이어가 승리해요.<br>
   9. 버그 발견 시 @wooramsol 로 알려주세요!</div>
   <div style="display:flex;align-items:center;margin-top:8px;">
@@ -860,7 +840,7 @@
   </div>
 </div>
 <div id="footerCredit"><div id="footerLegalLinks"><a href="/privacy.html">개인정보처리방침</a><span>·</span><a href="/terms.html">이용약관</a></div></div>
-<div id="verTagBottom">v1.9.128</div>
+<div id="verTagBottom">v1.9.129</div>
 
 <canvas id="confettiCanvas"></canvas>
 <div id="gameOverOverlay" class="hidden">
@@ -872,7 +852,8 @@
 </div>
 
 <!-- 칸에 직접 입력: 보이는 입력창 없음. wordInput은 한글 IME 조합을 위해 필요하지만
-     화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. modeBadge는 가로/세로 모드 + 입력 상태만 표시.
+     화면엔 안 보이고 선택된 칸 위치로 계속 따라다님. 가로/세로 모드 + 입력 상태는 draw()가
+     캔버스에 그리는 "space" 알약으로 표시함(v1.9.129, 예전 #modeBadge DOM 배지는 제거됨).
      autocomplete는 예전엔 "new-password"였는데(서드파티 자동완성 억제용), 이 값이 iOS의
      "강력한 암호 제안"(iCloud 키체인) 휴리스틱을 그대로 트리거함 — 첫 글자를 치는 순간
      iOS가 이 칸을 "새 비밀번호 입력칸"으로 판단해 키체인이 개입하면서, 키다운/키업(물리적
@@ -881,7 +862,6 @@
      keydown/keyup은 계속 올라감, 이게 iOS 키체인이 필드를 잠그는 전형적인 패턴과 일치).
      "off"로 바꿔서 키체인 개입 자체를 막음(서드파티 매니저 억제는 data-lpignore 등으로 계속함). -->
 <input id="wordInput" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" lang="ko" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other">
-<div id="modeBadge"></div>
 <!-- v1.9.116: 최초 방문자에게만 보이는 안내 말풍선 — 자동 선택된 칸 위에 떠서
      "단어를 입력해보세요"를 알려줌. pointer-events:none이라 그 아래 칸 탭을 가로채지 않음 -->
 <div id="onboardBubble">단어를 입력해보세요</div>
@@ -946,7 +926,7 @@
 // 이미 브라우저에 완전히 캐시돼서 네트워크를 아예 안 타는 경우) 이번 자동화로는 못 구하고
 // 예전처럼 캐시버스팅 링크를 다시 보내주거나 캐시를 지워야 함 — 대신 앞으로는(이 버전부터는)
 // 계속 최신 상태를 스스로 확인하게 됨.
-const APP_VERSION = 'v1.9.128'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
+const APP_VERSION = 'v1.9.129'; // #verTagBottom 및 public/version.txt와 항상 같은 값으로 유지할 것
 (async function selfHealStaleCache() {
   try {
     const res = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
@@ -2028,21 +2008,23 @@ function draw() {
 
   // 선택 칸 기준 입력이 진행될 다음 칸(가로면 오른쪽 칸, 세로면 아래쪽 칸) 정중앙에 지금
   // 입력 방향(→ 가로 / ↓ 세로)을 화살표로 보여줌 — 버튼 없이도 방향이 뭔지 바로 보이게.
-  // 웹/모바일 둘 다 보여줌(모바일은 예전엔 화살표 없이 modeBadge 텍스트만 있었는데, 웹처럼
-  // 칸 안에도 화살표가 보이길 원해서 추가함). Tab 알약 배지는 물리 Tab 키가 있는 웹에서만
-  // 의미가 있으므로 그대로 웹 전용으로 남김(모바일은 modeBadge를 탭해서 전환).
+  // v1.9.129: 예전엔 "Tab" 알약이 물리 Tab 키가 있는 웹에서만 뜨고, 모바일은 별도 DOM 배지
+  // (#modeBadge)를 탭해서 전환했는데, 이제 웹/모바일 둘 다 스페이스 키로 전환하도록
+  // 통일했으므로 이 알약도 기기 구분 없이 항상 그리고 라벨도 "space"로 바꿈(모바일은 화면
+  // 키보드의 스페이스바를 누르면 됨). dirPillState(setMsg() 참고)에 따라 정답/오류일 때
+  // 색도 같이 바뀌어서, DOM 배지가 하던 실시간 유효성 표시 역할까지 그대로 이어받음.
   // 입력이 시작되면(글자를 하나라도 치면) preview가 그 칸을 채우기 시작하므로 화살표는 사라짐
   if (sel) {
     const [ssx, ssy] = worldToScreen(sel.x, sel.y);
     ctx.save();
     ctx.textAlign = 'center';
-    if (!HAS_TOUCH) {
+    {
       const tabCx = ssx + cellSize / 2; // 선택 칸 윗변의 가로 중앙
-      // Tab 힌트: 선택 칸 "윗변" 중앙에 걸치도록(세로 중심을 윗변 라인에 맞춤) 알약(태그) 배경 + 텍스트
+      // space 힌트: 선택 칸 "윗변" 중앙에 걸치도록(세로 중심을 윗변 라인에 맞춤) 알약(태그) 배경 + 텍스트
       // 글자를 입력하기 시작해도(wordInput.value가 생겨도) 방향을 계속 알 수 있도록 항상 유지함
       const tabFontSize = Math.max(10, Math.floor(cellSize * 0.2));
       ctx.font = `700 ${tabFontSize}px "Apple SD Gothic Neo","Malgun Gothic",sans-serif`;
-      const tabLabel = 'Tab';
+      const tabLabel = 'space';
       const tabTextW = ctx.measureText(tabLabel).width;
       const tabPadX = tabFontSize * 0.55, tabPadY = tabFontSize * 0.42;
       const tabW = tabTextW + tabPadX * 2, tabH = tabFontSize + tabPadY * 2;
@@ -2056,7 +2038,7 @@ function draw() {
       ctx.arcTo(tabX, tabY + tabH, tabX, tabY, tabR);
       ctx.arcTo(tabX, tabY, tabX + tabW, tabY, tabR);
       ctx.closePath();
-      ctx.fillStyle = `hsl(${myHueVal}, 60%, 38%)`;
+      ctx.fillStyle = dirPillState === 'ok' ? '#2f8f4f' : dirPillState === 'err' ? '#c0392b' : `hsl(${myHueVal}, 60%, 38%)`;
       ctx.fill();
       ctx.fillStyle = '#fff';
       ctx.textBaseline = 'middle';
@@ -2299,32 +2281,16 @@ canvas.addEventListener('touchend', e => {
 
 // ---------- 칸 선택 / 직접 입력 ----------
 // wordInput: 화면엔 안 보이지만 실제 <input>이라 한글 IME 조합이 정상 동작함.
-// modeBadge: 가로/세로 모드만 표시. 제출은 버튼 없이 키보드 Enter로만 함.
+// 제출은 버튼 없이 키보드 Enter로만 함.
 const wordInput = document.getElementById('wordInput');
-const modeBadge = document.getElementById('modeBadge');
 let submitEnabled = false; // Enter로 제출 가능한 상태인지
 
-// 배지는 팬/줌 중에도 선택 칸을 계속 따라다녀야 하므로 draw()에서 매번 호출됨 (안전 — 포커스 없음)
-// 터치 기기(모바일)만 modeBadge(가로/세로 버튼)를 씀 — 웹에서는 방향을 칸 안의 태그+화살표
-// (draw() 참고)로 보여주므로 별도 DOM 배지가 필요 없음
-function positionSelUI() {
-  // 포획된(아이콘 있는) 칸도 이제 새 글자를 써서 뺏을 수 있는 입력 가능한 자리라, 다른
-  // 칸과 똑같이 가로/세로 전환 배지를 보여줘야 함 — 예전엔 포획된 칸을 아예 못 썼을 때
-  // 만든 코드라 여기서만 숨겨져 있었음(캔버스 쪽 방향 하이라이트/캐럿/화살표는 이미
-  // v1.9.53에서 고쳤는데 이 배지만 빠져 있었음)
-  if (!sel) {
-    modeBadge.classList.remove('show');
-    return;
-  }
-  if (!HAS_TOUCH) {
-    modeBadge.classList.remove('show');
-    return;
-  }
-  const [sx, sy] = worldToScreen(sel.x, sel.y);
-  modeBadge.style.left = (sx + cellSize / 2) + 'px';
-  modeBadge.style.top = sy + 'px';
-  modeBadge.classList.add('show');
-}
+// v1.9.129: 예전엔 여기서 터치 기기 전용 #modeBadge(가로/세로 탭 버튼) 위치를 잡았는데,
+// 그 버튼 자체가 없어짐(웹/모바일 모두 스페이스로 전환 + draw()가 캔버스에 그리는 "space"
+// 알약으로 통일) — 지금은 아무 것도 안 하는 빈 함수로 남겨둠(positionWordInput()과 같은
+// 이유: 호출부를 전부 지우는 대신 이렇게 두면 나중에 다시 필요해져도 호출 지점을 다시
+// 찾을 필요가 없음)
+function positionSelUI() {}
 
 // v1.9.116: 최초 방문자 안내 말풍선("단어를 입력해보세요") — 자동 선택된 칸(onboardCellCoord)
 // 위에 떠서 그 칸을 가리킴. positionSelUI()와 같은 시점(팬/줌/뷰포트 변화)마다 같이 호출돼서
@@ -2518,7 +2484,6 @@ function openPopup(cx, cy, px, py) {
 }
 function closePopup() {
   sel = null; preview = null; placing = false; dupHighlight = null;
-  modeBadge.classList.remove('show');
   hideOnboardBubble(); // v1.9.116: 선택을 완전히 접으면 안내 말풍선도 같이 치움
   // 선택을 풀 때 포커스도 같이 끊어서(모바일) 소프트 키보드가 실제로 닫히게 함.
   // 이미 포커스가 없는 상태(예: 데스크톱 Escape)에서 호출돼도 아무 부작용 없음.
@@ -2541,21 +2506,21 @@ function broadcastTyping() {
   }, 150);
 }
 // 텍스트 상자가 없으므로 메시지는 배지 색깔(초록=성공/빨강=에러)로만 표시하고,
-// 실제 문구는 toast로 짧게 띄운다.
+// 실제 문구는 toast로 짧게 띄운다. v1.9.129: 예전엔 이 색깔+문구(title 툴팁)를
+// #modeBadge(터치 전용 DOM 배지)에 입혔는데, 그 배지가 없어지고 draw()가 캔버스에 그리는
+// "space" 알약이 웹/모바일 공통 대체품이 됐으므로, 색은 이 상태 변수에 저장해뒀다가
+// draw()에서 칠하고, 문구는 (웹에서 마우스 호버 시 보이도록) canvas 자체의 title 속성에
+// 그대로 옮겨 둠 — 터치 기기는 원래도 호버가 없어 title이 안 보였으므로 동작 차이 없음
+let dirPillState = null; // null(기본) | 'ok'(초록) | 'err'(빨강)
 function setMsg(text, ok, neutral) {
-  modeBadge.classList.toggle('ok', !!ok);
   // neutral: 진짜 에러가 아니라 "아직 입력 중"인 상태(예: 아직 한 글자뿐이라 길이가 모자람)일 때
   // 빨간색(err)으로 보여주면 아무것도 안 했는데 에러가 난 것처럼 보여서 혼란스러움 — 이때는
-  // 배지를 기본 색 그대로 두고, 안내 문구는 title(툴팁)로만 남겨둠
-  modeBadge.classList.toggle('err', !ok && !neutral && !!text);
-  if (text) modeBadge.title = text;
-  else modeBadge.removeAttribute('title');
+  // 기본 색 그대로 둠
+  dirPillState = ok ? 'ok' : (!neutral && text ? 'err' : null);
+  if (text) canvas.title = text;
+  else canvas.removeAttribute('title');
 }
-function updateModeBadge() {
-  if (!sel) return;
-  // 웹(비터치)에서는 modeBadge 자체를 안 쓰므로(칸 안 태그+화살표로 대체) 문구만 갱신
-  modeBadge.textContent = sel.dir === 'h' ? '가로' : '세로';
-}
+function updateModeBadge() {}
 
 // 한글(완성 음절 가-힣 + 조합 중인 자모 ㄱ-ㅎ/ㅏ-ㅣ), 영문(A-Za-z), 숫자(0-9), 물음표(?)와
 // 느낌표(!)는 입력창에 타이핑되는 것 자체는 허용하되(글자가 지워지지 않고 그대로 보임), 그 외
@@ -2564,7 +2529,8 @@ function updateModeBadge() {
 // submit()에서 별도로 막음(HAS_ENGLISH_RE, HAS_PUNCT_RE 참고). 숫자만 섞인 경우는 예외적으로
 // 채팅처럼 자유롭게 놓을 수 있게 남겨둠(단어잇기·포획엔 관여 안 함).
 // 공백은 예전엔 채팅용으로 허용했었는데, "영문/숫자를 그냥 타이핑만 해도 화면에 놓아지는 것
-// 처럼 보인다"는 혼란을 줄이기 위해 공백은 아예 입력 자체를 막기로 함.
+// 처럼 보인다"는 혼란을 줄이기 위해 글자로서의 공백 입력 자체는 막기로 함(v1.9.129부터는
+// 그냥 지우기만 하는 게 아니라 가로/세로 전환 트리거로 재활용함 — 아래 input 리스너 참고).
 // v1.9.83: 예전엔 걸러지는 문자(주로 띄어쓰기)가 들어오면 토스트로 안내했는데, 영문/숫자를
 // 실제로 못 놓을 때도 조용히(토스트 없이) 막히는 것과 일관되게 하기 위해 안내 없이 그냥
 // 조용히 지우기만 함("무반응" 처리).
@@ -2581,6 +2547,16 @@ const HAS_DIGIT_RE = /[0-9]/;
 // 부분이 있어 완전히 지우지 않고 남겨둠
 const CHAT_CHARS_RE = /^[0-9]+$/;
 wordInput.addEventListener('input', e => {
+  // v1.9.129: 스페이스로 가로/세로 전환 — 보통은 아래 keydown 리스너에서 스페이스 키 자체를
+  // preventDefault()로 막아서 이 input 이벤트까지 오지도 않지만, 일부 모바일 가상 키보드는
+  // keydown을 온전히 안 보내거나 preventDefault를 무시하는 경우가 있어(특히 안드로이드 IME),
+  // 그런 기기를 위한 안전망으로 여기서도 한 번 더 확인함. 타이핑 소리(playTypeTick)가 나기
+  // 전에 먼저 걸러야 "글자 타건"이 아니라 "전환"으로 느껴짐.
+  if (!e.isComposing && wordInput.value.includes(' ')) {
+    wordInput.value = wordInput.value.replace(/ /g, '');
+    toggleDir(); // 내부에서 checkPreview()/broadcastTyping()까지 다 처리함
+    return;
+  }
   playTypeTick();
   if (!e.isComposing) {
     const cleaned = wordInput.value.replace(/[^가-힣ㄱ-ㅎㅏ-ㅣA-Za-z0-9?!]/g, '');
@@ -2623,6 +2599,12 @@ wordInput.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) { submit(); return; }
   if (e.key === 'Escape') { closePopup(); return; }
   if (e.key === 'Tab') { e.preventDefault(); toggleDir(); return; }
+  // v1.9.129: 스페이스로 가로/세로 전환(웹/모바일 공통) — Tab과 같은 자리에 둬서 IME
+  // 조합 중에도(한글 자모를 조합하다가 스페이스를 눌러도) 항상 전환되게 함. preventDefault로
+  // 막아두면 대부분의 기기에서 이 스페이스는 wordInput.value에 아예 안 들어가지만, 일부
+  // 모바일 키보드가 preventDefault를 무시하는 경우를 대비해 input 리스너에도 같은 처리를
+  // 한 번 더 해둠(안전망).
+  if (e.key === ' ') { e.preventDefault(); toggleDir(); return; }
   if (e.isComposing || e.keyCode === 229) return; // 한글 조합 중엔 방향키를 가로채지 않음
   if (e.key === 'ArrowUp') { e.preventDefault(); moveSel(0, -1); }
   else if (e.key === 'ArrowDown') { e.preventDefault(); moveSel(0, 1); }
@@ -2649,12 +2631,6 @@ function toggleDir() {
   checkPreview();
   broadcastTyping();
 }
-
-// 모바일은 물리 키보드가 없어 Tab을 누를 수 없으므로, 배지를 탭해서도 가로/세로를 바꿀 수 있게 함
-modeBadge.addEventListener('click', () => {
-  toggleDir();
-  wordInput.focus({ preventScroll: true }); // 배지를 탭하는 동안 포커스가 빠졌다면 다시 입력 가능하도록 복구
-});
 
 const getLocalCell = (x, y) => {
   if (!inBounds(x, y)) return OUT_OF_BOUNDS_WALL; // 10x10 밖은 항상 벽 취급
